@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: workflow-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/workflow_service}
+    username: ${DB_USER:collector}
+    password: ${DB_PASSWORD:collector}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/dept-collector/protocol/openid-connect/certs}
+
+server:
+  port: ${SERVER_PORT:8094}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  bounded-context: workflow
+  capabilities: BPMN processes,tasks,timers,incidents
+  security:
+    enabled: ${SECURITY_ENABLED:false}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"

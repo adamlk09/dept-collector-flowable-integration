@@ -1,0 +1,1 @@
+<template><div class="not-found"><span>404</span><h1>Page introuvable</h1><p>Cette route n’existe pas dans le frontend du POC.</p><RouterLink to="/" class="primary-button">Retour au tableau de bord</RouterLink></div></template>
