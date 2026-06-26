@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL
+                                 http://www.omg.org/spec/BPMN/20100524/MODEL/BPMN20.xsd"
+             targetNamespace="http://mercure.recouvrement/workflow">
+
+  <process id="debtCollectionProcess" name="Debt Collection Process" isExecutable="true">
+
+    <!-- Start -->
+    <startEvent id="start" name="Debt Received" />
+
+    <sequenceFlow id="flowToValidate" sourceRef="start" targetRef="validateDebt" />
+
+    <!-- Step 1: validate the incoming debt request -->
+    <serviceTask id="validateDebt"
+                 name="Validate Debt"
+                 flowable:delegateExpression="${validateDebtDelegate}" />
+
+    <sequenceFlow id="flowToSegment" sourceRef="validateDebt" targetRef="segmentDebt" />
+
+    <!-- Step 2: classify the debt (sets segment = HIGH_RISK / LOW_RISK) -->
+    <serviceTask id="segmentDebt"
+                 name="Segment Debt"
+                 flowable:delegateExpression="${segmentDebtDelegate}" />
+
+    <sequenceFlow id="flowToGateway" sourceRef="segmentDebt" targetRef="riskGateway" />
+
+    <!-- Step 3: decide the path based on the numeric score -->
+    <exclusiveGateway id="riskGateway" name="Is high risk?" />
+
+    <!-- High-risk path: score >= 70 -->
+    <sequenceFlow id="flowHighRisk" sourceRef="riskGateway" targetRef="selectPriorityStrategy">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${score >= 70}]]></conditionExpression>
+    </sequenceFlow>
+
+    <!-- Standard path: score < 70 -->
+    <sequenceFlow id="flowStandardRisk" sourceRef="riskGateway" targetRef="selectStandardStrategy">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${score < 70}]]></conditionExpression>
+    </sequenceFlow>
+
+    <!-- Step 4a: priority strategy (sets strategy = PRIORITY_COLLECTION, status = COMPLETED) -->
+    <serviceTask id="selectPriorityStrategy"
+                 name="Select Priority Strategy"
+                 flowable:delegateExpression="${selectPriorityStrategyDelegate}" />
+
+    <sequenceFlow id="flowPriorityToEnd" sourceRef="selectPriorityStrategy" targetRef="end" />
+
+    <!-- Step 4b: standard strategy (sets strategy = STANDARD_COLLECTION, status = COMPLETED) -->
+    <serviceTask id="selectStandardStrategy"
+                 name="Select Standard Strategy"
+                 flowable:delegateExpression="${selectStandardStrategyDelegate}" />
+
+    <sequenceFlow id="flowStandardToEnd" sourceRef="selectStandardStrategy" targetRef="end" />
+
+    <!-- End -->
+    <endEvent id="end" name="Completed" />
+
+  </process>
+
+</definitions>

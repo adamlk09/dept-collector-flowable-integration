@@ -58,5 +58,20 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
+  flowable-ui:
+    image: flowable/all-in-one:6.8.1
+    ports:
+      - "8090:8080"
+    environment:
+      SERVER_SERVLET_CONTEXTPATH: /flowable-ui
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workflow_service
+      SPRING_DATASOURCE_USERNAME: collector
+      SPRING_DATASOURCE_PASSWORD: collector
+      FLOWABLE_COMMON_APP_IDM-ADMIN_USER: admin
+      FLOWABLE_COMMON_APP_IDM-ADMIN_PASSWORD: admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:

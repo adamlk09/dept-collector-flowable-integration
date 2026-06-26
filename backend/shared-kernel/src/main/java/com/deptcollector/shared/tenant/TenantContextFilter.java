@@ -18,7 +18,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        if (request.getRequestURI().startsWith("/actuator")) {
+        if (isTenantExempt(request.getRequestURI())) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -35,5 +35,15 @@ public class TenantContextFilter extends OncePerRequestFilter {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    /**
+     * Infrastructure and API-documentation endpoints are not tenant-scoped, so they must
+     * load without an {@code X-Tenant-Id} header (a browser opening Swagger UI sends none).
+     */
+    private boolean isTenantExempt(String uri) {
+        return uri.startsWith("/actuator")
+                || uri.startsWith("/swagger-ui")
+                || uri.startsWith("/v3/api-docs");
     }
 }

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101/dmn.xsd"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="debtSegmentationDefinitions"
+             name="Debt Segmentation"
+             namespace="http://www.deptcollector.com/dmn">
+
+  <decision id="debtSegmentation" name="Debt Segmentation">
+    <decisionTable id="dt_debtSegmentation" hitPolicy="FIRST">
+
+      <input id="in_amount" label="Montant (€)">
+        <inputExpression id="ie_amount" typeRef="double">
+          <text>amount</text>
+        </inputExpression>
+      </input>
+
+      <input id="in_daysOverdue" label="Jours de retard">
+        <inputExpression id="ie_daysOverdue" typeRef="integer">
+          <text>daysOverdue</text>
+        </inputExpression>
+      </input>
+
+      <input id="in_clientType" label="Type client">
+        <inputExpression id="ie_clientType" typeRef="string">
+          <text>clientType</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_segment"     label="Segment"     name="segment"     typeRef="string"/>
+      <output id="out_explication" label="Explication" name="explication" typeRef="string"/>
+
+      <!-- R1 : montant très élevé → procédure légale immédiate -->
+      <rule id="R1">
+        <inputEntry id="R1_amount"><text>&gt; 50000</text></inputEntry>
+        <inputEntry id="R1_days"><text></text></inputEntry>
+        <inputEntry id="R1_client"><text></text></inputEntry>
+        <outputEntry id="R1_segment"><text>"LEGAL"</text></outputEntry>
+        <outputEntry id="R1_explication"><text>"R1 — Montant supérieur à 50 000 € : procédure légale requise"</text></outputEntry>
+      </rule>
+
+      <!-- R2 : créance très ancienne → procédure légale -->
+      <rule id="R2">
+        <inputEntry id="R2_amount"><text></text></inputEntry>
+        <inputEntry id="R2_days"><text>&gt; 180</text></inputEntry>
+        <inputEntry id="R2_client"><text></text></inputEntry>
+        <outputEntry id="R2_segment"><text>"LEGAL"</text></outputEntry>
+        <outputEntry id="R2_explication"><text>"R2 — Créance supérieure à 180 jours : procédure légale"</text></outputEntry>
+      </rule>
+
+      <!-- R3 : entreprise + montant élevé + retard significatif → critique -->
+      <rule id="R3">
+        <inputEntry id="R3_amount"><text>&gt; 10000</text></inputEntry>
+        <inputEntry id="R3_days"><text>&gt; 60</text></inputEntry>
+        <inputEntry id="R3_client"><text>"ENTERPRISE"</text></inputEntry>
+        <outputEntry id="R3_segment"><text>"CRITICAL"</text></outputEntry>
+        <outputEntry id="R3_explication"><text>"R3 — Entreprise : montant élevé et retard significatif"</text></outputEntry>
+      </rule>
+
+      <!-- R4 : montant important + retard long → critique -->
+      <rule id="R4">
+        <inputEntry id="R4_amount"><text>&gt; 5000</text></inputEntry>
+        <inputEntry id="R4_days"><text>&gt; 90</text></inputEntry>
+        <inputEntry id="R4_client"><text></text></inputEntry>
+        <outputEntry id="R4_segment"><text>"CRITICAL"</text></outputEntry>
+        <outputEntry id="R4_explication"><text>"R4 — Montant important avec retard long"</text></outputEntry>
+      </rule>
+
+      <!-- R5 : retard significatif → critique -->
+      <rule id="R5">
+        <inputEntry id="R5_amount"><text></text></inputEntry>
+        <inputEntry id="R5_days"><text>&gt; 60</text></inputEntry>
+        <inputEntry id="R5_client"><text></text></inputEntry>
+        <outputEntry id="R5_segment"><text>"CRITICAL"</text></outputEntry>
+        <outputEntry id="R5_explication"><text>"R5 — Retard de paiement supérieur à 60 jours"</text></outputEntry>
+      </rule>
+
+      <!-- R6 : cas par défaut → standard -->
+      <rule id="R6">
+        <inputEntry id="R6_amount"><text></text></inputEntry>
+        <inputEntry id="R6_days"><text></text></inputEntry>
+        <inputEntry id="R6_client"><text></text></inputEntry>
+        <outputEntry id="R6_segment"><text>"STANDARD"</text></outputEntry>
+        <outputEntry id="R6_explication"><text>"R6 — Cas standard : traitement normal"</text></outputEntry>
+      </rule>
+
+    </decisionTable>
+  </decision>
+</definitions>
