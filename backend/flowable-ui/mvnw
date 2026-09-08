@@ -1,0 +1,23 @@
+#!/bin/sh
+# Lightweight Maven wrapper matching the monorepo convention: reuse the cached
+# Maven 3.9.12 distribution; otherwise fall back to a `mvn` on PATH.
+set -e
+
+USER_HOME="${HOME:-$USERPROFILE}"
+MAVEN_CACHE="$USER_HOME/.m2/wrapper/dists/apache-maven-3.9.12"
+
+if [ -d "$MAVEN_CACHE" ]; then
+  for dir in "$MAVEN_CACHE"/*/; do
+    if [ -x "$dir/bin/mvn" ]; then
+      exec "$dir/bin/mvn" "$@"
+    fi
+  done
+fi
+
+if command -v mvn >/dev/null 2>&1; then
+  exec mvn "$@"
+fi
+
+echo "[mvnw] Maven 3.9.12 not found in $MAVEN_CACHE and no 'mvn' on PATH" >&2
+echo "[mvnw] Run once: mvn wrapper:wrapper  OR install Maven and add to PATH" >&2
+exit 1

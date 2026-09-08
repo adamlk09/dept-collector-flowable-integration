@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL
+                                 http://www.omg.org/spec/BPMN/20100524/MODEL/BPMN20.xsd"
+             targetNamespace="http://mercure.recouvrement/workflow">
+
+  <!--
+    EPIC 8 — the dedicated collection workflows, one per qualification. Each is invoked from
+    debtCollectionProcess via a call activity. Every workflow applies its strategy through the
+    shared ApplyStrategyDelegate (flowable:class + field injection), keeping the BPMN as the
+    single place where the per-qualification behavior lives.
+  -->
+
+  <!-- FIRST_CONTACT -->
+  <process id="reminderProcess" name="Reminder Process" isExecutable="true">
+    <startEvent id="rem_start" />
+    <sequenceFlow id="rem_f1" sourceRef="rem_start" targetRef="rem_apply" />
+    <serviceTask id="rem_apply" name="Send reminder (SMS/email)"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>FRIENDLY_REMINDER</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Reminder Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="rem_f2" sourceRef="rem_apply" targetRef="rem_end" />
+    <endEvent id="rem_end" />
+  </process>
+
+  <!-- FOLLOW_UP -->
+  <process id="phoneCollectionProcess" name="Phone Collection Process" isExecutable="true">
+    <startEvent id="pho_start" />
+    <sequenceFlow id="pho_f1" sourceRef="pho_start" targetRef="pho_apply" />
+    <serviceTask id="pho_apply" name="Create phone-call task"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>STANDARD_CONTACT</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Phone Collection Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="pho_f2" sourceRef="pho_apply" targetRef="pho_end" />
+    <endEvent id="pho_end" />
+  </process>
+
+  <!-- PROMISE_BROKEN -->
+  <process id="escalationProcess" name="Escalation Process" isExecutable="true">
+    <startEvent id="esc_start" />
+    <sequenceFlow id="esc_f1" sourceRef="esc_start" targetRef="esc_apply" />
+    <serviceTask id="esc_apply" name="Reinforced follow-up"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>INTENSIVE_CONTACT</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Escalation Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="esc_f2" sourceRef="esc_apply" targetRef="esc_end" />
+    <endEvent id="esc_end" />
+  </process>
+
+  <!-- PRE_LEGAL -->
+  <process id="preLegalCollectionProcess" name="Pre Legal Collection Process" isExecutable="true">
+    <startEvent id="pre_start" />
+    <sequenceFlow id="pre_f1" sourceRef="pre_start" targetRef="pre_apply" />
+    <serviceTask id="pre_apply" name="Transfer to pre-legal service"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>PRE_LEGAL_REVIEW</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Pre Legal Collection Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="pre_f2" sourceRef="pre_apply" targetRef="pre_end" />
+    <endEvent id="pre_end" />
+  </process>
+
+  <!-- LEGAL -->
+  <process id="legalCollectionProcess" name="Legal Collection Process" isExecutable="true">
+    <startEvent id="leg_start" />
+    <sequenceFlow id="leg_f1" sourceRef="leg_start" targetRef="leg_apply" />
+    <serviceTask id="leg_apply" name="Launch legal action"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>LEGAL_ACTION</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Legal Collection Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="leg_f2" sourceRef="leg_apply" targetRef="leg_end" />
+    <endEvent id="leg_end" />
+  </process>
+
+  <!-- CLIENT_INFORMATION_INCOMPLETE -->
+  <process id="updateCustomerInformationProcess" name="Update Customer Information Process" isExecutable="true">
+    <startEvent id="upd_start" />
+    <sequenceFlow id="upd_f1" sourceRef="upd_start" targetRef="upd_apply" />
+    <serviceTask id="upd_apply" name="Complete client information"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>UPDATE_CUSTOMER_INFO</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>PENDING_INFO</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Update Customer Information Process</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="upd_f2" sourceRef="upd_apply" targetRef="upd_end" />
+    <endEvent id="upd_end" />
+  </process>
+
+</definitions>

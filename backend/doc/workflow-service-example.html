@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow-Service — The Business Logic Explained</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --ink: #1f2430;
+    --muted: #5b6472;
+    --accent: #1f6feb;
+    --accent-soft: #e7f0ff;
+    --ok: #1a7f37;
+    --ok-soft: #e6f4ea;
+    --warn: #9a6700;
+    --warn-soft: #fff8e1;
+    --danger: #c0392b;
+    --danger-soft: #fdecea;
+    --code-bg: #f0f2f5;
+    --border: #e3e6ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #10233f 0%, #1f6feb 100%);
+    color: #fff; padding: 48px 24px 40px;
+  }
+  header.hero .inner { max-width: 1000px; margin: 0 auto; }
+  header.hero h1 { margin: 0 0 8px; font-size: 2rem; }
+  header.hero p { margin: 0; opacity: .85; max-width: 800px; }
+  .badges { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    padding: 3px 12px; border-radius: 999px; font-size: .8rem;
+  }
+  nav.toc {
+    max-width: 1000px; margin: -22px auto 0; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .9rem;
+    box-shadow: 0 4px 14px rgba(16,35,63,.08);
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  main { max-width: 1000px; margin: 32px auto 64px; padding: 0 24px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 32px; margin-bottom: 28px;
+  }
+  h2 { margin-top: 0; font-size: 1.4rem; border-bottom: 2px solid var(--accent-soft); padding-bottom: 10px; }
+  h3 { font-size: 1.05rem; margin: 26px 0 8px; }
+  p.lead { color: var(--muted); }
+  code, pre { font-family: "Cascadia Code", Consolas, monospace; font-size: .875em; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .92rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); }
+  .callout { border-left: 4px solid; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+  .callout.ok     { border-color: var(--ok);     background: var(--ok-soft); }
+  .callout.warn   { border-color: var(--warn);   background: var(--warn-soft); }
+  .callout.danger { border-color: var(--danger); background: var(--danger-soft); }
+  .callout.info   { border-color: var(--accent); background: var(--accent-soft); }
+  .callout strong:first-child { display: block; margin-bottom: 4px; }
+  .diagram-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; margin: 16px 0; overflow-x: auto;
+  }
+  .diagram-card figcaption {
+    font-size: .85rem; color: var(--muted); font-weight: 600; margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <h1>The Business of Workflow-Service</h1>
+    <p>What this service does for the business: how a debt file is classified into one of eight situations and
+    routed to the right collection action — explained in plain business terms.</p>
+    <div class="badges">
+      <span class="badge">Debt collection</span>
+      <span class="badge">8 business situations</span>
+      <span class="badge">7 decision facts</span>
+      <span class="badge">Categorical — no scoring</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#context">1 · The business problem</a>
+  <a href="#facts">2 · The 7 decision facts</a>
+  <a href="#situations">3 · The 8 situations &amp; their treatment</a>
+  <a href="#logic">4 · The decision logic (priority rules)</a>
+  <a href="#flow">5 · The workflow in action</a>
+  <a href="#outcome">6 · Risk &amp; outcome</a>
+</nav>
+
+<main>
+
+<section id="context">
+  <h2>1. The business problem</h2>
+  <p class="lead">A customer stops paying a debt. The collection business must answer one question for every
+  file: <strong>“what do we do with this debt file today?”</strong></p>
+  <ul>
+    <li>Sometimes the answer is gentle: a first reminder, a phone call.</li>
+    <li>Sometimes it is serious: escalate, hand the file to pre-legal, launch legal action.</li>
+    <li>Sometimes there is nothing to do: the debt is already paid (close), or we cannot act yet
+        (missing information), or we cannot even reach the debtor (research first).</li>
+  </ul>
+  <p><strong>workflow-service is the engine that makes this decision and then runs the chosen action as a
+  workflow.</strong> The decision is categorical — the file is classified using a handful of business facts.
+  There is <strong>no numeric scoring</strong>: no “risk score of 73”. The business speaks in situations and
+  treatments, and so does the service.</p>
+</section>
+
+<section id="facts">
+  <h2>2. The 7 decision facts</h2>
+  <p class="lead">To classify a file, the service looks at seven facts about the debtor and the debt.</p>
+  <table>
+    <tr><th>Fact</th><th>The business question it answers</th><th>Possible values (business meaning)</th></tr>
+    <tr><td><strong>Client info</strong></td><td>Is the debtor's file complete enough to act on?</td>
+        <td>Complete · Incomplete — if incomplete, we cannot legally start collection</td></tr>
+    <tr><td><strong>Contract status</strong></td><td>What is the state of the underlying contract?</td>
+        <td>Active · Suspended · Terminated</td></tr>
+    <tr><td><strong>Debt status</strong></td><td>What is the state of the debt itself?</td>
+        <td>Open · Partially paid · Paid</td></tr>
+    <tr><td><strong>Payment history</strong></td><td>How has the debtor been paying?</td>
+        <td>Good · Irregular · No payment at all</td></tr>
+    <tr><td><strong>Collection stage</strong></td><td>How far have collection actions already gone?</td>
+        <td>First contact · One follow-up · Many failed follow-ups</td></tr>
+    <tr><td><strong>Promise status</strong></td><td>Did the debtor promise to pay — and keep the promise?</td>
+        <td>No promise · Promise active · Promise kept · Promise broken</td></tr>
+    <tr><td><strong>Reachability</strong></td><td>Can we currently reach the debtor?</td>
+        <td>Reachable · Unreachable</td></tr>
+  </table>
+  <div class="callout info"><strong>Missing facts are handled safely</strong>
+    If a fact is not provided, the service assumes the most neutral value (e.g. client info complete, debt open,
+    no promise). The file always gets classified — a caller that only knows the debt and customer still works.</div>
+</section>
+
+<section id="situations">
+  <h2>3. The 8 situations &amp; their treatment</h2>
+  <p class="lead">The decision has <strong>eight possible outcomes</strong>. Each one is a real business
+  situation, and each one has its own treatment (a dedicated workflow).</p>
+  <table>
+    <tr><th>Situation</th><th>When it happens (business meaning)</th><th>What the service does</th></tr>
+    <tr><td><strong>FIRST_CONTACT</strong></td><td>First unpaid instalment; nothing has been done yet</td>
+        <td>Send a friendly reminder (SMS/email)</td></tr>
+    <tr><td><strong>FOLLOW_UP</strong></td><td>The debtor was already contacted once, still no payment</td>
+        <td>Schedule a phone call</td></tr>
+    <tr><td><strong>PROMISE_BROKEN</strong></td><td>The debtor promised to pay and did not keep the promise</td>
+        <td>Escalate: reinforced / intensive contact</td></tr>
+    <tr><td><strong>PRE_LEGAL</strong></td><td>Many follow-ups failed without result</td>
+        <td>Hand the file to the pre-legal service</td></tr>
+    <tr><td><strong>LEGAL</strong></td><td>Terminated contract + no payment + many failed follow-ups</td>
+        <td>Launch legal action</td></tr>
+    <tr><td><strong>CLIENT_INFORMATION_INCOMPLETE</strong></td><td>The file cannot be worked on (missing info)</td>
+        <td>Ask the agent to complete the client information</td></tr>
+    <tr><td><strong>DEBT_CLOSED</strong></td><td>The debt is already paid</td>
+        <td>Close the file</td></tr>
+    <tr><td><strong>INFO_RESEARCH</strong></td><td>The debtor cannot be reached</td>
+        <td>Run an information-research mission (find new contact details)</td></tr>
+  </table>
+</section>
+
+<section id="logic">
+  <h2>4. The decision logic — priority rules</h2>
+  <p class="lead">The rules are evaluated in a strict order: <strong>the most blocking or escalating situation
+  wins</strong>. It is the same priority a collection manager would apply by hand.</p>
+  <ol>
+    <li><strong>Incomplete client info</strong> blocks everything else — we cannot act on a file we do not understand.</li>
+    <li><strong>Debt paid</strong> → nothing left to collect → close the file.</li>
+    <li><strong>Debtor unreachable</strong> → first find them (research), then collect.</li>
+    <li><strong>Legal conditions met</strong> (terminated contract + no payment + many follow-ups) → legal action.</li>
+    <li><strong>Many failed follow-ups</strong> → pre-legal transfer.</li>
+    <li><strong>Broken promise</strong> → escalation / intensive contact.</li>
+    <li><strong>Already contacted once</strong> → follow-up phone call.</li>
+    <li><strong>Otherwise</strong> → first contact, friendly reminder (the default for a fresh, ordinary file).</li>
+  </ol>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 1 — The decision tree, in business terms (first match wins)</figcaption>
+    <div class="mermaid">
+flowchart TD
+    F["Debt file facts<br/>client info · contract · debt ·<br/>payment history · stage · promise · reachable"] --> Q1{"1. Client info<br/>incomplete?"}
+    Q1 -- yes --> S1["CLIENT_INFORMATION_INCOMPLETE<br/>agent completes the info"]
+    Q1 -- no --> Q2{"2. Debt<br/>already paid?"}
+    Q2 -- yes --> S2["DEBT_CLOSED<br/>close the file"]
+    Q2 -- no --> Q3{"3. Debtor<br/>unreachable?"}
+    Q3 -- yes --> S3["INFO_RESEARCH<br/>research mission"]
+    Q3 -- no --> Q4{"4. Terminated contract AND<br/>no payment AND many follow-ups?"}
+    Q4 -- yes --> S4["LEGAL<br/>legal action"]
+    Q4 -- no --> Q5{"5. Many failed<br/>follow-ups?"}
+    Q5 -- yes --> S5["PRE_LEGAL<br/>transfer to pre-legal"]
+    Q5 -- no --> Q6{"6. Promise<br/>broken?"}
+    Q6 -- yes --> S6["PROMISE_BROKEN<br/>escalation"]
+    Q6 -- no --> Q7{"7. Already<br/>contacted once?"}
+    Q7 -- yes --> S7["FOLLOW_UP<br/>phone call"]
+    Q7 -- no --> S8["FIRST_CONTACT<br/>friendly reminder"]
+    </div>
+  </figure>
+
+  <div class="callout ok"><strong>Business continuity is guaranteed</strong>
+    If the decision engine is temporarily unavailable, a built-in backup applies the exact same rules and the
+    file still gets classified. The business never sees a blocked file because of a technical failure.</div>
+</section>
+
+<section id="flow">
+  <h2>5. The workflow in action</h2>
+  <p class="lead">Once the situation is known, the file is routed to its treatment, the treatment is executed,
+  and the outcome is reported.</p>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 2 — The end-to-end business flow of a debt file</figcaption>
+    <div class="mermaid">
+flowchart LR
+    A["Debt file arrives<br/>debt + customer identified"] --> B["Validate<br/>file can be treated"]
+    B --> C["Decide the situation<br/>7 facts → 8 situations"]
+    C --> D["Route to the treatment"]
+    D --> E1["Friendly reminder"]
+    D --> E2["Phone call"]
+    D --> E3["Escalation"]
+    D --> E4["Pre-legal transfer"]
+    D --> E5["Legal action"]
+    D --> E6["Complete client info"]
+    D --> E7["Close file"]
+    D --> E8["Info research"]
+    E1 --> F["Report outcome<br/>situation · reason · risk · action · status"]
+    E2 --> F
+    E3 --> F
+    E4 --> F
+    E5 --> F
+    E6 --> F
+    E7 --> F
+    E8 --> F
+    </div>
+  </figure>
+
+  <h3>Step by step, in business words</h3>
+  <ol>
+    <li><strong>The file arrives</strong> — the caller identifies the debt and the customer.</li>
+    <li><strong>The file is validated</strong> — both must be identifiable, otherwise the treatment cannot start.</li>
+    <li><strong>The situation is decided</strong> — using the priority rules of §4.</li>
+    <li><strong>The file is routed</strong> — each situation goes to its own treatment workflow.</li>
+    <li><strong>The treatment runs</strong> — the action is applied end to end (reminder sent, task created, file
+        handed over, legal launched, file closed, etc.).</li>
+    <li><strong>The outcome is reported</strong> — the caller learns exactly what was decided, why, and what was done.</li>
+  </ol>
+</section>
+
+<section id="outcome">
+  <h2>6. Risk &amp; outcome</h2>
+  <h3>Risk level (segment)</h3>
+  <p>Beyond the situation, each file gets a risk level used for prioritisation by the rest of the platform:</p>
+  <table>
+    <tr><th>Risk</th><th>Situations</th><th>Meaning</th></tr>
+    <tr><td><strong>HIGH_RISK</strong></td><td>LEGAL · PRE_LEGAL · PROMISE_BROKEN</td>
+        <td>The file is serious or worsening — priority handling</td></tr>
+    <tr><td><strong>LOW_RISK</strong></td><td>Everything else</td>
+        <td>Standard handling</td></tr>
+  </table>
+
+  <h3>Outcome status</h3>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><strong>COMPLETED</strong></td><td>The treatment finished cleanly (reminder sent, call scheduled, file handed over, action launched)</td></tr>
+    <tr><td><strong>PENDING_INFO</strong></td><td>Waiting on human input — the agent must complete client info, or the research mission must return</td></tr>
+    <tr><td><strong>CLOSED</strong></td><td>The file is closed (debt paid)</td></tr>
+  </table>
+
+  <div class="callout info"><strong>The answer the business gets</strong>
+    For every file the service returns: the <em>situation</em> decided, the <em>reason</em> (which fact triggered
+    it), the <em>risk level</em>, the <em>action</em> applied and the <em>status</em> of the treatment. No magic —
+    the decision is always explainable.</div>
+</section>
+
+</main>
+
+<footer>
+  Dept Collector — Workflow-Service business logic · branch <code>ft-setup-flowable</code>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#e7f0ff',
+      primaryBorderColor: '#1f6feb',
+      primaryTextColor: '#1f2430',
+      lineColor: '#1f6feb',
+      secondaryColor: '#f7f8fa',
+      tertiaryColor: '#ffffff',
+      fontSize: '14px'
+    },
+    flowchart: { curve: 'basis', htmlLabels: true }
+  });
+</script>
+</body>
+</html>

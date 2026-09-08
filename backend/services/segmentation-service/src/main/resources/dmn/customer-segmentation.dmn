@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="customerSegmentationDefinitions"
+             name="Segmentation client"
+             namespace="http://www.deptcollector.com/dmn">
+
+  <!--
+    Milestone 2, independent 4th decision (not chained after staging/priority/action):
+    formalizes the customerType -> customerSegment mapping, including the reclassification rule
+    (a PROFESSIONNEL with very large exposure is handled as an ENTREPRISE-tier case).
+  -->
+  <decision id="customerSegmentationDecision" name="Segmentation client">
+    <decisionTable id="dt_customerSegmentationDecision" hitPolicy="FIRST">
+
+      <input id="in_customerType" label="Type de client">
+        <inputExpression id="ie_customerType" typeRef="string">
+          <text>customerType</text>
+        </inputExpression>
+      </input>
+      <input id="in_totalExposure" label="Encours global">
+        <inputExpression id="ie_totalExposure" typeRef="number">
+          <text>totalExposure</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_customerSegment" label="Segment client" name="customerSegment" typeRef="string"/>
+
+      <rule id="R1">
+        <inputEntry id="R1_type"><text>"ENTREPRISE"</text></inputEntry>
+        <inputEntry id="R1_exposure"><text></text></inputEntry>
+        <outputEntry id="R1_segment"><text>"ENTREPRISE"</text></outputEntry>
+      </rule>
+      <rule id="R2">
+        <inputEntry id="R2_type"><text>"PROFESSIONNEL"</text></inputEntry>
+        <inputEntry id="R2_exposure"><text>&gt;= 50000</text></inputEntry>
+        <outputEntry id="R2_segment"><text>"ENTREPRISE"</text></outputEntry>
+      </rule>
+      <rule id="R3">
+        <inputEntry id="R3_type"><text>"PROFESSIONNEL"</text></inputEntry>
+        <inputEntry id="R3_exposure"><text></text></inputEntry>
+        <outputEntry id="R3_segment"><text>"PROFESSIONNEL"</text></outputEntry>
+      </rule>
+      <rule id="R4">
+        <inputEntry id="R4_type"><text></text></inputEntry>
+        <inputEntry id="R4_exposure"><text></text></inputEntry>
+        <outputEntry id="R4_segment"><text>"PARTICULIER"</text></outputEntry>
+      </rule>
+
+    </decisionTable>
+  </decision>
+</definitions>

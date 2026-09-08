@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="collectionStagingDefinitions"
+             name="Qualification du recouvrement"
+             namespace="http://www.deptcollector.com/dmn">
+
+  <!--
+    Milestone 2 (see workflow-service/precess-banking-recovery.md doc §7): first link of the
+    4-decision chain orchestrated by CollectionDecisionService. Same 5 ageing/exposure buckets
+    as the superseded single-table banking-staging.dmn, split into the doc's ifrsStage/
+    collectionPhase vocabulary (chained into collection-priority.dmn next).
+    Two input columns per bound, same reason as collection-qualification's siblings: Flowable's
+    DMN input cells compile to one UEL comparison each, not a FEEL range.
+  -->
+  <decision id="collectionStagingDecision" name="Qualification du recouvrement">
+    <decisionTable id="dt_collectionStagingDecision" hitPolicy="FIRST">
+
+      <input id="in_overdueDaysMin" label="Ancienneté impayé >= (jours)">
+        <inputExpression id="ie_overdueDaysMin" typeRef="number">
+          <text>overdueDays</text>
+        </inputExpression>
+      </input>
+      <input id="in_overdueDaysMax" label="Ancienneté impayé &lt;= (jours)">
+        <inputExpression id="ie_overdueDaysMax" typeRef="number">
+          <text>overdueDays</text>
+        </inputExpression>
+      </input>
+      <input id="in_totalExposure" label="Encours global">
+        <inputExpression id="ie_totalExposure" typeRef="number">
+          <text>totalExposure</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_ifrsStage" label="Stage IFRS 9" name="ifrsStage" typeRef="string"/>
+      <output id="out_collectionPhase" label="Phase de recouvrement" name="collectionPhase" typeRef="string"/>
+
+      <rule id="R1">
+        <inputEntry id="R1_min"><text>&gt;= 1</text></inputEntry>
+        <inputEntry id="R1_max"><text>&lt;= 30</text></inputEntry>
+        <inputEntry id="R1_exposure"><text></text></inputEntry>
+        <outputEntry id="R1_stage"><text>"STAGE_2"</text></outputEntry>
+        <outputEntry id="R1_phase"><text>"COMMERCIAL"</text></outputEntry>
+      </rule>
+
+      <rule id="R2">
+        <inputEntry id="R2_min"><text>&gt;= 31</text></inputEntry>
+        <inputEntry id="R2_max"><text>&lt;= 90</text></inputEntry>
+        <inputEntry id="R2_exposure"><text>&gt;= 15000</text></inputEntry>
+        <outputEntry id="R2_stage"><text>"STAGE_2"</text></outputEntry>
+        <outputEntry id="R2_phase"><text>"HIGH_EXPOSURE"</text></outputEntry>
+      </rule>
+
+      <rule id="R3">
+        <inputEntry id="R3_min"><text>&gt;= 31</text></inputEntry>
+        <inputEntry id="R3_max"><text>&lt;= 60</text></inputEntry>
+        <inputEntry id="R3_exposure"><text>&lt; 15000</text></inputEntry>
+        <outputEntry id="R3_stage"><text>"STAGE_2"</text></outputEntry>
+        <outputEntry id="R3_phase"><text>"AMIABLE"</text></outputEntry>
+      </rule>
+
+      <rule id="R4">
+        <inputEntry id="R4_min"><text>&gt;= 61</text></inputEntry>
+        <inputEntry id="R4_max"><text>&lt;= 90</text></inputEntry>
+        <inputEntry id="R4_exposure"><text></text></inputEntry>
+        <outputEntry id="R4_stage"><text>"STAGE_2"</text></outputEntry>
+        <outputEntry id="R4_phase"><text>"PRE_CONTENTIOUS"</text></outputEntry>
+      </rule>
+
+      <rule id="R5">
+        <inputEntry id="R5_min"><text></text></inputEntry>
+        <inputEntry id="R5_max"><text></text></inputEntry>
+        <inputEntry id="R5_exposure"><text></text></inputEntry>
+        <outputEntry id="R5_stage"><text>"STAGE_3"</text></outputEntry>
+        <outputEntry id="R5_phase"><text>"LEGAL"</text></outputEntry>
+      </rule>
+
+    </decisionTable>
+  </decision>
+</definitions>

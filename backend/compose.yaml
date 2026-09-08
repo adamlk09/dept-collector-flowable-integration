@@ -58,20 +58,52 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
+  # Flowable UI 6.8 (Modeler / Task / Admin / IDM) — official image; Flowable 7.x ships no UI apps.
+  # It runs on its OWN database (flowable_ui): a 6.8 engine cannot open the 7.2 schema that
+  # workflow-service manages (boot-time schema version check fails), so the DB is NOT shared.
+  # To inspect the real engine, the Admin app is pre-wired to workflow-service's Flowable REST API
+  # (http://host.docker.internal:8094/process-api) — definitions, instances, jobs, diagrams.
+  # UI: http://localhost:8090/flowable-ui — login admin / test.
   flowable-ui:
-    image: flowable/all-in-one:6.8.1
+    image: flowable/flowable-ui:6.8.0
     ports:
       - "8090:8080"
     environment:
-      SERVER_SERVLET_CONTEXTPATH: /flowable-ui
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/workflow_service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flowable_ui
       SPRING_DATASOURCE_USERNAME: collector
       SPRING_DATASOURCE_PASSWORD: collector
-      FLOWABLE_COMMON_APP_IDM-ADMIN_USER: admin
-      FLOWABLE_COMMON_APP_IDM-ADMIN_PASSWORD: admin
+      # Admin app "Process engine" endpoint → workflow-service on the host.
+      # CONTEXTROOT "/" passes the must-be-set validation but is stripped when the URL is
+      # composed, yielding http://host.docker.internal:8094/process-api.
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_PROCESS_SERVERADDRESS: http://host.docker.internal
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_PROCESS_PORT: "8094"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_PROCESS_CONTEXTROOT: "/"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_PROCESS_RESTROOT: "process-api"
+      # Admin app "CMMN engine" endpoint → same workflow-service instance (Milestone 1's
+      # bankingCollectionCase runs in the same process engine's CMMN sub-engine).
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_CMMN_SERVERADDRESS: http://host.docker.internal
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_CMMN_PORT: "8094"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_CMMN_CONTEXTROOT: "/"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_CMMN_RESTROOT: "cmmn-api"
+      # Admin app "DMN engine" endpoint → segmentation-service (the DMN side of the Flowable
+      # split — see backend CLAUDE.md).
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_DMN_SERVERADDRESS: http://host.docker.internal
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_DMN_PORT: "8092"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_DMN_CONTEXTROOT: "/"
+      FLOWABLE_ADMIN_APP_SERVERCONFIG_DMN_RESTROOT: "dmn-api"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Local/dev SMTP sink for notification-service (doc §18: never real credentials in dev).
+  # Web UI at http://localhost:8025 shows every email sent by the demo — no real inbox needed.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   postgres-data:

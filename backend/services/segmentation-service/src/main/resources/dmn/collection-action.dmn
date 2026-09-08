@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="collectionActionDefinitions"
+             name="Action de recouvrement"
+             namespace="http://www.deptcollector.com/dmn">
+
+  <!--
+    Milestone 2, third link: recommendedAction/collectorLevel from priority (resolved by
+    collection-priority.dmn) AND collectionPhase (resolved by collection-staging.dmn) — priority
+    alone collapses AMIABLE and PRE_CONTENTIOUS into the same MEDIUM bucket, losing the distinct
+    action the business matrix requires for each (phone call vs registered letter). Rules R1/R2
+    disambiguate that MEDIUM case by phase before the generic priority-only rules below apply.
+  -->
+  <decision id="collectionActionDecision" name="Action de recouvrement">
+    <decisionTable id="dt_collectionActionDecision" hitPolicy="FIRST">
+
+      <input id="in_priority" label="Priorité">
+        <inputExpression id="ie_priority" typeRef="string">
+          <text>priority</text>
+        </inputExpression>
+      </input>
+      <input id="in_collectionPhase" label="Phase de recouvrement">
+        <inputExpression id="ie_collectionPhase" typeRef="string">
+          <text>collectionPhase</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_recommendedAction" label="Action recommandée" name="recommendedAction" typeRef="string"/>
+      <output id="out_collectorLevel" label="Niveau agent" name="collectorLevel" typeRef="string"/>
+
+      <rule id="R1">
+        <inputEntry id="R1_priority"><text>"MEDIUM"</text></inputEntry>
+        <inputEntry id="R1_phase"><text>"PRE_CONTENTIOUS"</text></inputEntry>
+        <outputEntry id="R1_action"><text>"REGISTERED_LETTER"</text></outputEntry>
+        <outputEntry id="R1_level"><text>"COLLECTOR_LEVEL_1"</text></outputEntry>
+      </rule>
+      <rule id="R2">
+        <inputEntry id="R2_priority"><text>"MEDIUM"</text></inputEntry>
+        <inputEntry id="R2_phase"><text>"AMIABLE"</text></inputEntry>
+        <outputEntry id="R2_action"><text>"PHONE_CALL"</text></outputEntry>
+        <outputEntry id="R2_level"><text>"COLLECTOR_LEVEL_1"</text></outputEntry>
+      </rule>
+      <rule id="R3">
+        <inputEntry id="R3_priority"><text>"LOW"</text></inputEntry>
+        <inputEntry id="R3_phase"><text></text></inputEntry>
+        <outputEntry id="R3_action"><text>"SMS_EMAIL"</text></outputEntry>
+        <outputEntry id="R3_level"><text>"COLLECTOR_LEVEL_1"</text></outputEntry>
+      </rule>
+      <rule id="R4">
+        <inputEntry id="R4_priority"><text>"MEDIUM"</text></inputEntry>
+        <inputEntry id="R4_phase"><text></text></inputEntry>
+        <outputEntry id="R4_action"><text>"PHONE_CALL"</text></outputEntry>
+        <outputEntry id="R4_level"><text>"COLLECTOR_LEVEL_1"</text></outputEntry>
+      </rule>
+      <rule id="R5">
+        <inputEntry id="R5_priority"><text>"HIGH"</text></inputEntry>
+        <inputEntry id="R5_phase"><text></text></inputEntry>
+        <outputEntry id="R5_action"><text>"FORMAL_NOTICE"</text></outputEntry>
+        <outputEntry id="R5_level"><text>"SENIOR_COLLECTOR"</text></outputEntry>
+      </rule>
+      <rule id="R6">
+        <inputEntry id="R6_priority"><text>"CRITICAL"</text></inputEntry>
+        <inputEntry id="R6_phase"><text></text></inputEntry>
+        <outputEntry id="R6_action"><text>"LEGAL_ESCALATION"</text></outputEntry>
+        <outputEntry id="R6_level"><text>"LEGAL_TEAM"</text></outputEntry>
+      </rule>
+      <rule id="R7">
+        <inputEntry id="R7_priority"><text></text></inputEntry>
+        <inputEntry id="R7_phase"><text></text></inputEntry>
+        <outputEntry id="R7_action"><text>"SMS_EMAIL"</text></outputEntry>
+        <outputEntry id="R7_level"><text>"COLLECTOR_LEVEL_1"</text></outputEntry>
+      </rule>
+
+    </decisionTable>
+  </decision>
+</definitions>

@@ -42,6 +42,15 @@
       <artifactId>flowable-spring-boot-starter-dmn</artifactId>
       <version>${flowable.version}</version>
     </dependency>
+    <!-- Exposes /dmn-api/** (repository/decisions/history) — consumed by the Flowable Admin
+         UI's DMN Engine tab. Its security auto-config is excluded (see
+         SegmentationServiceApplication) the same way workflow-service excludes it for
+         flowable-spring-boot-starter-rest, so /dmn-api stays under the shared-kernel chain. -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-dmn-rest</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>

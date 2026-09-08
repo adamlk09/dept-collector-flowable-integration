@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL
+                                 http://www.omg.org/spec/BPMN/20100524/MODEL/BPMN20.xsd"
+             targetNamespace="http://mercure.recouvrement/workflow">
+
+  <!--
+    Second, independent process — deployed alongside debtCollectionProcess without touching it.
+    Models the bank-specific recovery flow: irregular-portfolio extraction -> KYC/reachability
+    check -> automatic staging (IFRS 9-style ageing + exposure) -> agent dispatch -> Stage 3
+    legal escalation (BPMN service task + a discretionary CMMN case) or Stage 2 promise/timer/
+    payment handling (racing a 7-day timer against an external payment message).
+  -->
+
+  <message id="message_paymentReceived" name="paymentReceivedMessage" />
+
+  <process id="bankingRecoveryProcess" name="Processus de recouvrement bancaire" isExecutable="true">
+
+    <!-- Start -->
+    <startEvent id="brp_start" name="Compte irrégulier détecté" />
+    <sequenceFlow id="brp_flowToExtract" sourceRef="brp_start" targetRef="extractIrregularAccount" />
+
+    <!-- Step 1: extraction of the irregular account (unpaid instalments, debit balance, rating downgrade) -->
+    <serviceTask id="extractIrregularAccount"
+                 name="Extraire le compte irrégulier"
+                 flowable:delegateExpression="${extractIrregularAccountDelegate}" />
+    <sequenceFlow id="brp_flowToReachability" sourceRef="extractIrregularAccount" targetRef="checkReachability" />
+
+    <!-- Step 2: KYC / reachability control (phone + address validation) -->
+    <serviceTask id="checkReachability"
+                 name="Vérifier KYC et joignabilité"
+                 flowable:delegateExpression="${checkReachabilityDelegate}" />
+    <sequenceFlow id="brp_flowToStage" sourceRef="checkReachability" targetRef="stageRecovery" />
+
+    <!-- Step 3: automatic staging (IFRS 9-style ageing + exposure) and priority calculation -->
+    <serviceTask id="stageRecovery"
+                 name="Qualifier le dossier de recouvrement"
+                 flowable:delegateExpression="${stageRecoveryDelegate}" />
+    <sequenceFlow id="brp_flowToAssign" sourceRef="stageRecovery" targetRef="assignToAgent" />
+
+    <!-- Step 4: dispatch into the specialized agent's To-Do List. stage/priority/action/recoveryTeam
+         are already process variables (set by stageRecovery) so a UI can render them on the task;
+         candidateGroups is dynamic, one queue per client segment (recoveryTeam-PARTICULIERS,
+         recoveryTeam-PROFESSIONNELS, recoveryTeam-ENTREPRISES). This is the process's one *required*
+         wait state. A non-interrupting boundary timer fires an SLA reminder if the agent hasn't
+         acted after 2 days — the task itself stays open (cancelActivity="false"). -->
+    <userTask id="assignToAgent" name="Traiter le dossier de recouvrement"
+              flowable:candidateGroups="${recoveryTeam}" />
+    <sequenceFlow id="brp_flowToGateway" sourceRef="assignToAgent" targetRef="escalationGateway" />
+
+    <!-- PT2M for live demo purposes — production value is P2D (2 days), see doc/demo-script.md.
+         Change this single line back to P2D before any non-demo deployment. -->
+    <boundaryEvent id="assignToAgentReminder" name="Relance SLA (2 jours)" attachedToRef="assignToAgent" cancelActivity="false">
+      <timerEventDefinition>
+        <timeDuration>PT2M</timeDuration>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="brp_flowToReminder" sourceRef="assignToAgentReminder" targetRef="sendReminderNotice" />
+    <serviceTask id="sendReminderNotice" name="Envoyer la relance SLA"
+                 flowable:delegateExpression="${sendReminderDelegate}" />
+    <sequenceFlow id="brp_flowReminderEnd" sourceRef="sendReminderNotice" targetRef="brp_reminderEnd" />
+    <endEvent id="brp_reminderEnd" name="Relance envoyée" />
+
+    <!-- Step 4b: escalation ladder (Level 1 -> Senior). POST .../actions/escalate sets
+         escalationRequested=true when completing assignToAgent instead of a plain complete; the
+         case is handed to a second, senior-queue task before continuing to the normal DMN routing
+         below. Silent SLA timeout does not auto-escalate here — it only sends a reminder
+         (sendReminderNotice above); escalation is always an explicit agent action. -->
+    <exclusiveGateway id="escalationGateway" name="Escalade demandée ?" default="brp_flowEscalationDefault" />
+    <sequenceFlow id="brp_flowToEscalateSenior" sourceRef="escalationGateway" targetRef="escalateToSenior">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${escalationRequested == true}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="brp_flowEscalationDefault" sourceRef="escalationGateway" targetRef="stageGateway" />
+
+    <userTask id="escalateToSenior" name="Traiter le dossier escaladé (Senior)"
+              flowable:candidateGroups="collectionManagers">
+      <extensionElements>
+        <flowable:taskListener event="create" delegateExpression="${bumpToSeniorLevelDelegate}" />
+      </extensionElements>
+    </userTask>
+    <sequenceFlow id="brp_flowEscalateSeniorToGateway" sourceRef="escalateToSenior" targetRef="stageGateway" />
+
+    <!-- Step 5: route Stage 3 (contentieux/judiciaire) to legal escalation, everything else default -->
+    <exclusiveGateway id="stageGateway" name="Router selon le stage" default="brp_flowDefault" />
+
+    <sequenceFlow id="brp_flowLitigation" sourceRef="stageGateway" targetRef="startLegalCase">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${stage == 'STAGE3_LITIGATION'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="brp_flowDefault" sourceRef="stageGateway" targetRef="applyRecoveryAction" />
+
+    <!-- Stage 3, part A: open a discretionary CMMN case (investigate / request documents / manager
+         approval / formal notice / escalate to legal / close — any order, agent's judgement) that
+         runs alongside the deterministic BPMN path below. Flowable has no native BPMN->CMMN call
+         element; StartLegalCaseDelegate starts it via CmmnRuntimeService, the standard pattern. -->
+    <serviceTask id="startLegalCase" name="Ouvrir un dossier contentieux (CMMN)"
+                 flowable:delegateExpression="${startLegalCaseDelegate}" />
+    <sequenceFlow id="brp_flowToLegalTransfer" sourceRef="startLegalCase" targetRef="applyLegalTransfer" />
+
+    <!-- Stage 3, part B: forfeiture of term + transfer to lawyer/huissier (deterministic outcome,
+         independent of how the CMMN case above plays out) -->
+    <serviceTask id="applyLegalTransfer" name="Transfert juridique (Avocat / Huissier)"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>LEGAL_TRANSFER</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>TRANSFERRED_TO_LEGAL</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Legal Transfer</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="brp_flowLegalEnd" sourceRef="applyLegalTransfer" targetRef="brp_end" />
+
+    <!-- Stage 2 (any phase): apply the DMN-resolved action (reminder / call / letter / senior alert) -->
+    <serviceTask id="applyRecoveryAction" name="Appliquer l'action de recouvrement"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:expression>${action}</flowable:expression></flowable:field>
+        <flowable:field name="status"><flowable:string>COMPLETED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Recovery Action</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="brp_flowToEventGateway" sourceRef="applyRecoveryAction" targetRef="eventGatewayWait" />
+
+    <!-- Step 6: race a 7-day promise deadline against an external payment confirmation. Whichever
+         happens first wins — a genuine event-based gateway, not a poll loop. -->
+    <eventBasedGateway id="eventGatewayWait" name="Attendre paiement ou expiration" />
+    <sequenceFlow id="brp_flowGatewayToTimer" sourceRef="eventGatewayWait" targetRef="waitPaymentDeadline" />
+    <sequenceFlow id="brp_flowGatewayToMessage" sourceRef="eventGatewayWait" targetRef="paymentReceivedMessageCatch" />
+
+    <!-- Branch A: no payment confirmed within 7 days -> ask the paymentReceived variable (still
+         settable via the generic POST /processes/{id}/variables for ops/demo use), default NON. -->
+    <!-- PT30S for live demo purposes — production value is P7D (7 days), see doc/demo-script.md.
+         Change this single line back to P7D before any non-demo deployment. -->
+    <intermediateCatchEvent id="waitPaymentDeadline" name="Attendre 7 jours (échéance de promesse)">
+      <timerEventDefinition>
+        <timeDuration>PT1M</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="brp_flowToPaymentGateway" sourceRef="waitPaymentDeadline" targetRef="paymentGateway" />
+
+    <exclusiveGateway id="paymentGateway" name="Paiement reçu ?" default="brp_flowPaymentNo" />
+    <sequenceFlow id="brp_flowPaymentYes" sourceRef="paymentGateway" targetRef="closeCase">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${paymentReceived == true}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="brp_flowPaymentNo" sourceRef="paymentGateway" targetRef="escalateCase" />
+
+    <!-- Branch B: an external payment event arrives first, correlated by business key via
+         POST /api/v1/workflows/cases/{caseId}/payment -> CollectionWorkflowService.correlatePayment
+         -> runtimeService.createMessageCorrelation("paymentReceivedMessage"). Arrival itself is the
+         confirmation, so it goes straight to closeCase — no need to re-check the gateway. -->
+    <intermediateCatchEvent id="paymentReceivedMessageCatch" name="Paiement confirmé (message)">
+      <messageEventDefinition messageRef="message_paymentReceived" />
+    </intermediateCatchEvent>
+    <sequenceFlow id="brp_flowMessageToClose" sourceRef="paymentReceivedMessageCatch" targetRef="closeCase" />
+
+    <!-- OUI: promise kept -> close the file -->
+    <serviceTask id="closeCase" name="Clôturer le dossier (paiement reçu)"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>PROMISE_KEPT</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>CLOSED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Close Case</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="brp_flowCloseEnd" sourceRef="closeCase" targetRef="brp_end" />
+
+    <!-- NON: promise broken -> escalate -->
+    <serviceTask id="escalateCase" name="Escalader (promesse non tenue)"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>ESCALATION</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>ESCALATED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Escalate Case</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="brp_flowEscalateEnd" sourceRef="escalateCase" targetRef="brp_end" />
+
+    <!-- End -->
+    <endEvent id="brp_end" name="Terminé" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_bankingRecoveryProcess">
+    <bpmndi:BPMNPlane id="BPMNPlane_bankingRecoveryProcess" bpmnElement="bankingRecoveryProcess">
+
+      <bpmndi:BPMNShape bpmnElement="brp_start" id="BPMNShape_brp_start">
+        <omgdc:Bounds height="30.0" width="30.0" x="40.0" y="165.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="extractIrregularAccount" id="BPMNShape_extractIrregularAccount">
+        <omgdc:Bounds height="60.0" width="100.0" x="120.0" y="150.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="checkReachability" id="BPMNShape_checkReachability">
+        <omgdc:Bounds height="60.0" width="100.0" x="270.0" y="150.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="stageRecovery" id="BPMNShape_stageRecovery">
+        <omgdc:Bounds height="60.0" width="100.0" x="420.0" y="150.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="assignToAgent" id="BPMNShape_assignToAgent">
+        <omgdc:Bounds height="60.0" width="100.0" x="570.0" y="150.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="assignToAgentReminder" id="BPMNShape_assignToAgentReminder">
+        <omgdc:Bounds height="30.0" width="30.0" x="605.0" y="195.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sendReminderNotice" id="BPMNShape_sendReminderNotice">
+        <omgdc:Bounds height="60.0" width="110.0" x="560.0" y="430.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="brp_reminderEnd" id="BPMNShape_brp_reminderEnd">
+        <omgdc:Bounds height="30.0" width="30.0" x="720.0" y="445.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="escalationGateway" id="BPMNShape_escalationGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="670.0" y="560.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="escalateToSenior" id="BPMNShape_escalateToSenior">
+        <omgdc:Bounds height="60.0" width="130.0" x="830.0" y="550.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="stageGateway" id="BPMNShape_stageGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="720.0" y="160.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="startLegalCase" id="BPMNShape_startLegalCase">
+        <omgdc:Bounds height="60.0" width="110.0" x="830.0" y="40.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="applyLegalTransfer" id="BPMNShape_applyLegalTransfer">
+        <omgdc:Bounds height="60.0" width="110.0" x="990.0" y="40.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="applyRecoveryAction" id="BPMNShape_applyRecoveryAction">
+        <omgdc:Bounds height="60.0" width="110.0" x="830.0" y="270.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="eventGatewayWait" id="BPMNShape_eventGatewayWait">
+        <omgdc:Bounds height="40.0" width="40.0" x="990.0" y="285.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="waitPaymentDeadline" id="BPMNShape_waitPaymentDeadline">
+        <omgdc:Bounds height="30.0" width="30.0" x="1080.0" y="200.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="paymentReceivedMessageCatch" id="BPMNShape_paymentReceivedMessageCatch">
+        <omgdc:Bounds height="30.0" width="30.0" x="1080.0" y="380.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="paymentGateway" id="BPMNShape_paymentGateway">
+        <omgdc:Bounds height="40.0" width="40.0" x="1170.0" y="195.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="closeCase" id="BPMNShape_closeCase">
+        <omgdc:Bounds height="60.0" width="110.0" x="1260.0" y="120.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="escalateCase" id="BPMNShape_escalateCase">
+        <omgdc:Bounds height="60.0" width="110.0" x="1260.0" y="380.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="brp_end" id="BPMNShape_brp_end">
+        <omgdc:Bounds height="30.0" width="30.0" x="1450.0" y="270.0" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToExtract" id="BPMNEdge_brp_flowToExtract">
+        <omgdi:waypoint x="70.0" y="180.0" />
+        <omgdi:waypoint x="120.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToReachability" id="BPMNEdge_brp_flowToReachability">
+        <omgdi:waypoint x="220.0" y="180.0" />
+        <omgdi:waypoint x="270.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToStage" id="BPMNEdge_brp_flowToStage">
+        <omgdi:waypoint x="370.0" y="180.0" />
+        <omgdi:waypoint x="420.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToAssign" id="BPMNEdge_brp_flowToAssign">
+        <omgdi:waypoint x="520.0" y="180.0" />
+        <omgdi:waypoint x="570.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToGateway" id="BPMNEdge_brp_flowToGateway">
+        <omgdi:waypoint x="620.0" y="210.0" />
+        <omgdi:waypoint x="620.0" y="580.0" />
+        <omgdi:waypoint x="670.0" y="580.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToEscalateSenior" id="BPMNEdge_brp_flowToEscalateSenior">
+        <omgdi:waypoint x="690.0" y="600.0" />
+        <omgdi:waypoint x="690.0" y="620.0" />
+        <omgdi:waypoint x="895.0" y="620.0" />
+        <omgdi:waypoint x="895.0" y="610.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowEscalationDefault" id="BPMNEdge_brp_flowEscalationDefault">
+        <omgdi:waypoint x="710.0" y="580.0" />
+        <omgdi:waypoint x="720.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowEscalateSeniorToGateway" id="BPMNEdge_brp_flowEscalateSeniorToGateway">
+        <omgdi:waypoint x="960.0" y="550.0" />
+        <omgdi:waypoint x="740.0" y="200.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToReminder" id="BPMNEdge_brp_flowToReminder">
+        <omgdi:waypoint x="620.0" y="225.0" />
+        <omgdi:waypoint x="620.0" y="460.0" />
+        <omgdi:waypoint x="560.0" y="460.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowReminderEnd" id="BPMNEdge_brp_flowReminderEnd">
+        <omgdi:waypoint x="670.0" y="460.0" />
+        <omgdi:waypoint x="720.0" y="460.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowLitigation" id="BPMNEdge_brp_flowLitigation">
+        <omgdi:waypoint x="740.0" y="160.0" />
+        <omgdi:waypoint x="740.0" y="70.0" />
+        <omgdi:waypoint x="830.0" y="70.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowDefault" id="BPMNEdge_brp_flowDefault">
+        <omgdi:waypoint x="740.0" y="200.0" />
+        <omgdi:waypoint x="740.0" y="300.0" />
+        <omgdi:waypoint x="830.0" y="300.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToLegalTransfer" id="BPMNEdge_brp_flowToLegalTransfer">
+        <omgdi:waypoint x="940.0" y="70.0" />
+        <omgdi:waypoint x="990.0" y="70.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowLegalEnd" id="BPMNEdge_brp_flowLegalEnd">
+        <omgdi:waypoint x="1100.0" y="70.0" />
+        <omgdi:waypoint x="1465.0" y="70.0" />
+        <omgdi:waypoint x="1465.0" y="270.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToEventGateway" id="BPMNEdge_brp_flowToEventGateway">
+        <omgdi:waypoint x="940.0" y="300.0" />
+        <omgdi:waypoint x="990.0" y="305.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowGatewayToTimer" id="BPMNEdge_brp_flowGatewayToTimer">
+        <omgdi:waypoint x="1010.0" y="285.0" />
+        <omgdi:waypoint x="1010.0" y="215.0" />
+        <omgdi:waypoint x="1080.0" y="215.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowGatewayToMessage" id="BPMNEdge_brp_flowGatewayToMessage">
+        <omgdi:waypoint x="1010.0" y="325.0" />
+        <omgdi:waypoint x="1010.0" y="395.0" />
+        <omgdi:waypoint x="1080.0" y="395.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowToPaymentGateway" id="BPMNEdge_brp_flowToPaymentGateway">
+        <omgdi:waypoint x="1110.0" y="215.0" />
+        <omgdi:waypoint x="1170.0" y="215.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowPaymentYes" id="BPMNEdge_brp_flowPaymentYes">
+        <omgdi:waypoint x="1190.0" y="195.0" />
+        <omgdi:waypoint x="1190.0" y="150.0" />
+        <omgdi:waypoint x="1260.0" y="150.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowPaymentNo" id="BPMNEdge_brp_flowPaymentNo">
+        <omgdi:waypoint x="1190.0" y="235.0" />
+        <omgdi:waypoint x="1190.0" y="410.0" />
+        <omgdi:waypoint x="1260.0" y="410.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowMessageToClose" id="BPMNEdge_brp_flowMessageToClose">
+        <omgdi:waypoint x="1110.0" y="395.0" />
+        <omgdi:waypoint x="1315.0" y="395.0" />
+        <omgdi:waypoint x="1315.0" y="180.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowCloseEnd" id="BPMNEdge_brp_flowCloseEnd">
+        <omgdi:waypoint x="1370.0" y="150.0" />
+        <omgdi:waypoint x="1465.0" y="150.0" />
+        <omgdi:waypoint x="1465.0" y="270.0" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="brp_flowEscalateEnd" id="BPMNEdge_brp_flowEscalateEnd">
+        <omgdi:waypoint x="1370.0" y="410.0" />
+        <omgdi:waypoint x="1465.0" y="410.0" />
+        <omgdi:waypoint x="1465.0" y="300.0" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

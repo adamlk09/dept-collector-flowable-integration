@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dept Collector — Documentation Workflow, Décision &amp; Flowable</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --ink: #1f2430;
+    --muted: #5b6472;
+    --accent: #1f6feb;
+    --accent-soft: #e7f0ff;
+    --ok: #1a7f37;
+    --ok-soft: #e6f4ea;
+    --warn: #9a6700;
+    --warn-soft: #fff8e1;
+    --danger: #c0392b;
+    --danger-soft: #fdecea;
+    --code-bg: #f0f2f5;
+    --border: #e3e6ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #10233f 0%, #1f6feb 100%);
+    color: #fff; padding: 48px 24px 40px;
+  }
+  header.hero .inner { max-width: 1000px; margin: 0 auto; }
+  header.hero h1 { margin: 0 0 8px; font-size: 2rem; }
+  header.hero p { margin: 0; opacity: .85; max-width: 720px; }
+  .badges { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    padding: 3px 12px; border-radius: 999px; font-size: .8rem;
+  }
+  nav.toc {
+    max-width: 1000px; margin: -22px auto 0; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .9rem;
+    box-shadow: 0 4px 14px rgba(16,35,63,.08);
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  main { max-width: 1000px; margin: 32px auto 64px; padding: 0 24px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 32px; margin-bottom: 28px;
+  }
+  h2 { margin-top: 0; font-size: 1.4rem; border-bottom: 2px solid var(--accent-soft); padding-bottom: 10px; }
+  h3 { font-size: 1.05rem; margin: 26px 0 8px; }
+  p.lead { color: var(--muted); }
+  code, pre {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: .875em;
+  }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+  pre {
+    background: #10233f; color: #dbe6f5; padding: 16px 18px; border-radius: 8px;
+    overflow-x: auto; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .92rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); }
+  .callout { border-left: 4px solid; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+  .callout.ok     { border-color: var(--ok);     background: var(--ok-soft); }
+  .callout.warn   { border-color: var(--warn);   background: var(--warn-soft); }
+  .callout.danger { border-color: var(--danger); background: var(--danger-soft); }
+  .callout.info   { border-color: var(--accent); background: var(--accent-soft); }
+  .callout strong:first-child { display: block; margin-bottom: 4px; }
+  .diagram {
+    background: #10233f; color: #9fd0ff; padding: 18px; border-radius: 8px;
+    overflow-x: auto; font-family: Consolas, monospace; font-size: .8rem;
+    white-space: pre; line-height: 1.45;
+  }
+  .pill { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .pill.v7 { background: var(--ok-soft); color: var(--ok); }
+  .pill.v6 { background: var(--warn-soft); color: var(--warn); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card-mini { border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
+  .card-mini h4 { margin: 0 0 6px; }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 24px; }
+  kbd {
+    background: #fff; border: 1px solid var(--border); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 6px; font-size: .85em;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <h1>Dept Collector — Workflow de recouvrement</h1>
+    <p>Documentation de l'intégration Flowable : contexte métier, processus BPMN, décision DMN,
+       et mise en place de la Flowable UI pour visualiser les workflows.</p>
+    <div class="badges">
+      <span class="badge">Java 21</span>
+      <span class="badge">Spring Boot 3.5.12</span>
+      <span class="badge">Flowable Engine 7.2.0</span>
+      <span class="badge">Flowable UI 6.8.0 (Docker)</span>
+      <span class="badge">PostgreSQL 17</span>
+      <span class="badge">Multi-tenant</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#architecture">1. Architecture du projet</a>
+  <a href="#contexte">2. Contexte métier</a>
+  <a href="#bpmn">3. Le processus BPMN</a>
+  <a href="#dmn">4. La décision DMN</a>
+  <a href="#flowable">5. Intégration Flowable</a>
+  <a href="#flowable-ui">6. Flowable UI</a>
+  <a href="#database">7. Bases de données</a>
+  <a href="#guide">8. Guide d'utilisation</a>
+  <a href="#api">9. API REST</a>
+</nav>
+
+<main>
+
+<!-- ================================================================ -->
+<section id="architecture">
+  <h2>1. Architecture du projet</h2>
+  <p class="lead">
+    <strong>Dept Collector</strong> est une plateforme de recouvrement de créances construite en
+    <strong>microservices Maven multi-modules</strong> : une passerelle
+    (<code>api-gateway</code>, port 8080), une librairie transverse (<code>shared-kernel</code>)
+    et 25 services autonomes (ports 8081+), chacun avec sa propre base PostgreSQL.
+  </p>
+  <table>
+    <tr><th>Module</th><th>Port</th><th>Rôle</th></tr>
+    <tr><td><code>api-gateway</code></td><td>8080</td><td>Spring Cloud Gateway — point d'entrée unique</td></tr>
+    <tr><td><code>segmentation-service</code></td><td>8092</td><td><strong>Moteur DMN</strong> — tables de décision (segmentation / qualification)</td></tr>
+    <tr><td><code>workflow-service</code></td><td>8094</td><td><strong>Moteur BPMN</strong> — orchestration du processus de recouvrement</td></tr>
+    <tr><td><code>flowable-ui</code> (Docker)</td><td>8090</td><td>Interface graphique Flowable (Modeler / Task / Admin / IDM)</td></tr>
+    <tr><td>Autres services</td><td>8081+</td><td>customer, debt, contract, payment, legal, notification, …</td></tr>
+  </table>
+  <h3>Multi-tenancy</h3>
+  <p>
+    Chaque requête doit porter l'en-tête <code>X-Tenant-Id</code>. Le filtre
+    <code>TenantContextFilter</code> (shared-kernel) le rend obligatoire et alimente un
+    <code>ThreadLocal</code> (<code>TenantContext</code>). Toute requête Flowable
+    (démarrage de processus, requêtes runtime/historique) est filtrée par ce tenant.
+    <em>Exceptions</em> : <code>/actuator</code>, <code>/swagger-ui</code>,
+    <code>/v3/api-docs</code> et <code>/process-api</code> (voir <a href="#flowable-ui">§6</a>).
+  </p>
+  <h3>Infrastructure (docker compose)</h3>
+  <table>
+    <tr><th>Service</th><th>Port</th><th>Identifiants</th></tr>
+    <tr><td>PostgreSQL 17</td><td>5432</td><td><code>collector / collector</code></td></tr>
+    <tr><td>Keycloak 26</td><td>8180</td><td><code>admin / admin</code></td></tr>
+    <tr><td>Redis 7.4</td><td>6379</td><td>—</td></tr>
+    <tr><td>Kafka 3.9 (KRaft)</td><td>9092</td><td>—</td></tr>
+    <tr><td><strong>Flowable UI 6.8.0</strong></td><td><strong>8090</strong></td><td><code>admin / test</code></td></tr>
+  </table>
+</section>
+
+<!-- ================================================================ -->
+<section id="contexte">
+  <h2>2. Contexte métier — le workflow de recouvrement</h2>
+  <p class="lead">
+    L'objectif est de <strong>qualifier un dossier de recouvrement</strong> puis de démarrer
+    automatiquement le bon processus BPMN. La qualification analyse le dossier en 6 étapes
+    (EPICs 1–6) avant de rendre une décision métier (EPIC 7) qui route vers le bon
+    sous-processus (EPIC 8).
+  </p>
+  <h3>Les faits collectés (EPICs 1–6)</h3>
+  <table>
+    <tr><th>EPIC</th><th>Vérification</th><th>Résultats possibles</th></tr>
+    <tr><td>1</td><td>Informations client (nom, CIN/ICE, téléphones, email, adresse, employeur…)</td>
+        <td><code>CLIENT_INFORMATION_COMPLETE</code> / <code>CLIENT_INFORMATION_INCOMPLETE</code></td></tr>
+    <tr><td>2</td><td>Contrat (numéro, produit, statut, dates, actif/suspendu/résilié)</td>
+        <td><code>ACTIVE_CONTRACT</code> / <code>SUSPENDED_CONTRACT</code> / <code>TERMINATED_CONTRACT</code></td></tr>
+    <tr><td>3</td><td>Dette (montant, échéances, retards)</td><td>faits sur l'impayé</td></tr>
+    <tr><td>4–6</td><td>Historique de contact, promesses de paiement, relances</td><td>faits de suivi (ex. <code>FIRST_CONTACT</code>)</td></tr>
+  </table>
+  <h3>La qualification (EPIC 7)</h3>
+  <p>Le moteur évalue les cas <strong>par ordre de priorité</strong> :</p>
+  <table>
+    <tr><th>Cas</th><th>Situation</th><th>Qualification</th><th>Action</th></tr>
+    <tr><td>1</td><td>Informations client incomplètes</td><td><code>CLIENT_INFO_INCOMPLETE</code></td><td>Tâche « Compléter les informations client »</td></tr>
+    <tr><td>2</td><td>Dette déjà payée</td><td><code>DEBT_CLOSED</code></td><td>Clôture du dossier (inline)</td></tr>
+    <tr><td>3</td><td>Premier impayé</td><td><code>FIRST_CONTACT</code></td><td>SMS → Email (Reminder Process)</td></tr>
+    <tr><td>4</td><td>Deuxième relance</td><td><code>FOLLOW_UP</code></td><td>Tâche d'appel téléphonique</td></tr>
+    <tr><td>5</td><td>Promesse non respectée</td><td><code>PROMISE_BROKEN</code></td><td>Relance renforcée (escalade)</td></tr>
+    <tr><td>6</td><td>Client injoignable</td><td><code>INFO_RESEARCH</code></td><td>Mission de recherche d'informations (inline)</td></tr>
+    <tr><td>7</td><td>Retard important, relances sans succès</td><td><code>PRE_LEGAL</code></td><td>Transfert au service pré-juridique</td></tr>
+    <tr><td>8</td><td>Conditions juridiques réunies</td><td><code>LEGAL</code></td><td>Workflow juridique</td></tr>
+  </table>
+  <h3>Le routage (EPIC 8)</h3>
+  <table>
+    <tr><th>Qualification</th><th>Workflow démarré</th></tr>
+    <tr><td><code>CLIENT_INFO_INCOMPLETE</code></td><td>Update Customer Information Process</td></tr>
+    <tr><td><code>FIRST_CONTACT</code> (défaut)</td><td>Reminder Process</td></tr>
+    <tr><td><code>FOLLOW_UP</code></td><td>Phone Collection Process</td></tr>
+    <tr><td><code>PROMISE_BROKEN</code></td><td>Escalation Process</td></tr>
+    <tr><td><code>PRE_LEGAL</code></td><td>Pre Legal Collection Process</td></tr>
+    <tr><td><code>LEGAL</code></td><td>Legal Collection Process</td></tr>
+    <tr><td><code>DEBT_CLOSED</code> / <code>INFO_RESEARCH</code></td><td>Traitement inline (pas de sous-processus)</td></tr>
+  </table>
+</section>
+
+<!-- ================================================================ -->
+<section id="bpmn">
+  <h2>3. Le processus BPMN (workflow-service)</h2>
+  <p class="lead">
+    Deux fichiers sous <code>services/workflow-service/src/main/resources/processes/</code>,
+    <strong>auto-déployés au démarrage</strong> (aucune étape manuelle) :
+  </p>
+  <ul>
+    <li><code>debt-collection-process.bpmn20.xml</code> — l'orchestrateur, clé de processus
+        <code>debtCollectionProcess</code>.</li>
+    <li><code>collection-subprocesses.bpmn20.xml</code> — les 6 sous-processus (EPIC 8),
+        chacun étant sa propre définition.</li>
+  </ul>
+  <div class="diagram">start → validateDebt → segmentDebt → qualificationGateway ─┬─ LEGAL                  → callLegal      → end
+                                       (route sur            ├─ PRE_LEGAL              → callPreLegal   → end
+                                        ${qualification})    ├─ PROMISE_BROKEN         → callEscalation → end
+                                                             ├─ FOLLOW_UP              → callPhone      → end
+                                                             ├─ CLIENT_INFO_INCOMPLETE → callUpdateInfo → end
+                                                             ├─ DEBT_CLOSED            → closeFile      → end  (inline)
+                                                             ├─ INFO_RESEARCH          → infoResearch   → end  (inline)
+                                                             └─ défaut (FIRST_CONTACT) → callReminder   → end</div>
+  <h3>Les delegates Java</h3>
+  <table>
+    <tr><th>Classe</th><th>Liaison BPMN</th><th>Rôle</th></tr>
+    <tr>
+      <td><code>ValidateDebtDelegate</code></td>
+      <td><code>delegateExpression</code> (bean Spring)</td>
+      <td>Validation du dossier (placeholder actuellement)</td>
+    </tr>
+    <tr>
+      <td><code>SegmentDebtDelegate</code></td>
+      <td><code>delegateExpression</code> (bean Spring)</td>
+      <td>Le moteur de qualification : (1) résout les faits EPIC 1–6 via
+          <code>CollectionFactsResolver</code>, (2) appelle la DMN du
+          <code>segmentation-service</code> via <code>SegmentationClient</code>, avec
+          <strong>repli local</strong> (<code>qualifyLocally</code>) si la DMN est
+          indisponible. Pose les variables <code>qualification</code>,
+          <code>qualificationReason</code>, <code>segment</code>
+          (<code>HIGH_RISK</code>/<code>LOW_RISK</code>) et
+          <code>qualificationSource</code> (<code>DMN</code>/<code>LOCAL</code>).</td>
+    </tr>
+    <tr>
+      <td><code>ApplyStrategyDelegate</code></td>
+      <td><code>flowable:class</code> (instance par exécution)</td>
+      <td>Chaque sous-processus injecte ses propres littéraux
+          <code>strategy</code>/<code>status</code>/<code>workflow</code> — le comportement
+          par qualification reste déclaré dans le BPMN, pas dupliqué en Java.</td>
+    </tr>
+  </table>
+  <h3>Invariants du service</h3>
+  <ul>
+    <li><strong>Tenancy</strong> : chaque opération appelle
+        <code>TenantContext.getRequiredTenantId()</code> ; les processus sont démarrés avec
+        <code>.tenantId(...)</code> et toutes les requêtes Flowable sont filtrées par tenant.</li>
+    <li><strong>Démarrage idempotent</strong> (<code>POST /api/v1/workflows/processes</code>) :
+        si une instance active existe déjà pour le même <code>businessKey</code>
+        (= <code>debtId</code>) + tenant, elle est retournée (HTTP 200) au lieu d'en créer
+        une seconde (HTTP 201).</li>
+    <li><code>debtId</code> est la <strong>business key</strong> BPMN, injectée aussi comme
+        variable de processus.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="dmn">
+  <h2>4. La décision DMN (segmentation-service)</h2>
+  <p class="lead">
+    Les règles de qualification sont externalisées dans une <strong>table de décision DMN</strong>
+    (<code>debt-segmentation.dmn</code>, sous
+    <code>services/segmentation-service/src/main/resources/dmn/</code>), modifiables sans
+    recompiler le code — c'est l'exigence « règles facilement modifiables via Flowable DMN ».
+  </p>
+  <h3>La chaîne BPMN → DMN</h3>
+  <div class="diagram">┌──────────────────────┐  POST /api/v1/segmentation/execute   ┌───────────────────────┐
+│  workflow-service     │ ────────────────────────────────────▶ │  segmentation-service │
+│  (BPMN, port 8094)    │   X-Tenant-Id / X-Correlation-Id      │  (DMN, port 8092)     │
+│  SegmentDebtDelegate  │ ◀──────────────────────────────────── │  debt-segmentation.dmn│
+└──────────────────────┘   qualification + règles matchées      └───────────────────────┘
+        │
+        └── si la DMN est injoignable → repli local (qualifyLocally, cas EPIC-7 en ordre
+            de priorité). Le delegate NE LÈVE JAMAIS d'exception sur échec DMN : le
+            processus BPMN continue toujours (qualificationSource = LOCAL).</div>
+  <ul>
+    <li>La réponse DMN retourne <strong>le segment ET les règles matchées</strong>
+        (explicabilité de la décision).</li>
+    <li>Les en-têtes <code>X-Tenant-Id</code> et <code>X-Correlation-Id</code> sont propagés
+        par <code>SegmentationClient</code>.</li>
+    <li>Flowable est volontairement limité à <strong>deux services</strong> :
+        ne jamais ajouter de dépendance Flowable ailleurs.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="flowable">
+  <h2>5. Intégration Flowable — versions et choix techniques</h2>
+  <h3>Les versions utilisées</h3>
+  <table>
+    <tr><th>Composant</th><th>Artefact</th><th>Version</th><th>Pourquoi</th></tr>
+    <tr>
+      <td><code>workflow-service</code></td>
+      <td><code>flowable-spring-boot-starter-process</code><br>
+          <code>flowable-spring-boot-starter-rest</code></td>
+      <td><span class="pill v7">7.2.0</span></td>
+      <td>Moteur BPMN embarqué + API REST officielle (<code>/process-api</code>).
+          Flowable 7.x est la seule lignée compatible Spring Boot 3 / Jakarta.</td>
+    </tr>
+    <tr>
+      <td><code>segmentation-service</code></td>
+      <td><code>flowable-spring-boot-starter-dmn</code></td>
+      <td><span class="pill v7">7.2.0</span></td>
+      <td>Moteur DMN embarqué pour les tables de décision.</td>
+    </tr>
+    <tr>
+      <td>Flowable UI (Docker)</td>
+      <td>image <code>flowable/flowable-ui</code></td>
+      <td><span class="pill v6">6.8.0</span></td>
+      <td>Les applications UI (Modeler/Task/Admin/IDM) <strong>n'existent plus en 7.x</strong> —
+          la dernière version publiée est la 6.8.0.</td>
+    </tr>
+  </table>
+
+  <div class="callout danger">
+    <strong>Pourquoi ne PAS rétrograder le moteur en 6.8 ?</strong>
+    Un downgrade a été envisagé (pour aligner le moteur sur la UI) puis <strong>abandonné après
+    vérification</strong> : Flowable 6.8 enregistre son auto-configuration uniquement via
+    <code>META-INF/spring.factories</code>, un mécanisme <strong>supprimé par Spring Boot 3</strong>
+    (remplacé par <code>AutoConfiguration.imports</code>, introduit chez Flowable en 7.0).
+    Avec 6.8 sur le classpath, Spring Boot 3.5 ne créerait <em>aucun</em> bean
+    <code>ProcessEngine</code>/<code>RuntimeService</code> — le service ne démarrerait pas.
+    De plus, 6.8 est basé sur <code>javax.servlet</code> alors que le projet est Jakarta.
+    La seule issue aurait été de rétrograder les 25 services vers Spring Boot 2.7 (EOL) — refusé.
+  </div>
+
+  <h3>Le compromis retenu</h3>
+  <p>
+    Le moteur reste en <strong>7.2.0</strong> (moderne, supporté) ; la visualisation est assurée
+    par la <strong>Flowable UI 6.8.0 en Docker</strong>, dont l'application <strong>Admin</strong>
+    est branchée sur l'API REST du moteur 7.2 (<code>/process-api</code>) — les endpoints REST
+    sont restés stables entre 6.8 et 7.2 pour la consultation (définitions, instances, jobs,
+    diagrammes).
+  </p>
+</section>
+
+<!-- ================================================================ -->
+<section id="flowable-ui">
+  <h2>6. Flowable UI — installation et fonctionnement</h2>
+  <p class="lead">
+    La Flowable UI tourne comme service Docker dans le <code>compose.yaml</code> racine
+    (image officielle <code>flowable/flowable-ui:6.8.0</code>, port hôte <strong>8090</strong>).
+  </p>
+  <table>
+    <tr><th>Application</th><th>Usage dans ce projet</th></tr>
+    <tr><td><strong>Admin</strong></td>
+        <td>⭐ <strong>L'outil principal</strong> : pré-connectée au moteur réel de
+            <code>workflow-service</code> via
+            <code>http://host.docker.internal:8094/process-api</code>. Permet de consulter les
+            définitions déployées, les instances en cours, les variables, les jobs/timers et le
+            <strong>diagramme du processus</strong>.</td></tr>
+    <tr><td><strong>Modeler</strong></td>
+        <td>Concevoir des BPMN / DMN / formulaires graphiquement. ⚠️ Le bouton « Deploy »
+            déploie dans le moteur 6.8 <em>embarqué de la UI</em>, pas dans workflow-service :
+            pour utiliser un modèle, <strong>exporter le XML</strong> et le placer dans
+            <code>resources/processes/</code> du workflow-service.</td></tr>
+    <tr><td><strong>Task</strong></td>
+        <td>Liste de tâches humaines du moteur embarqué de la UI (pas celui de
+            workflow-service).</td></tr>
+    <tr><td><strong>IDM</strong></td>
+        <td>Gestion des utilisateurs/groupes de la UI (login <code>admin / test</code>).</td></tr>
+  </table>
+
+  <h3>Comment la UI atteint le moteur 7.2</h3>
+  <div class="diagram">┌───────────────────────────────┐        REST (basic auth)        ┌──────────────────────────────┐
+│  Docker : flowable-ui 6.8.0   │  GET /process-api/repository/…  │  workflow-service 7.2 (hôte) │
+│  App Admin                    │ ───────────────────────────────▶│  port 8094                   │
+│  http://localhost:8090        │   via host.docker.internal      │  /process-api (starter-rest) │
+└───────────────────────────────┘                                 └──────────────────────────────┘</div>
+  <ul>
+    <li><code>workflow-service</code> expose l'API REST officielle Flowable grâce à
+        <code>flowable-spring-boot-starter-rest</code> ; sa sécurité propre
+        (<code>FlowableSecurityAutoConfiguration</code>) est exclue pour rester sous la chaîne
+        de sécurité du shared-kernel.</li>
+    <li>L'app Admin ne sait envoyer que du <em>basic auth</em> (pas d'en-têtes personnalisés) :
+        le chemin <code>/process-api</code> a donc été ajouté aux
+        <strong>exemptions tenant</strong> de <code>TenantContextFilter</code> — les requêtes
+        Flowable portent leur propre dimension tenant.</li>
+    <li>La connexion est <strong>pré-configurée par variables d'environnement</strong> dans le
+        compose (<code>FLOWABLE_ADMIN_APP_SERVERCONFIG_PROCESS_*</code>). Astuce : le
+        <code>CONTEXTROOT</code> vaut <code>"/"</code> car une valeur vide est refusée par la
+        validation, mais le slash est éliminé à la construction de l'URL — le résultat est bien
+        <code>http://host.docker.internal:8094/process-api</code>.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="database">
+  <h2>7. Bases de données — la UI partage-t-elle la base du workflow-service ?</h2>
+  <div class="callout danger">
+    <strong>NON — et c'est volontaire.</strong>
+    La Flowable UI a sa <strong>propre base <code>flowable_ui</code></strong>, distincte de
+    <code>workflow_service</code>. Les deux ne doivent jamais être partagées.
+  </div>
+  <h3>Pourquoi la séparation est obligatoire</h3>
+  <p>
+    Chaque moteur Flowable tamponne sa version de schéma dans la table
+    <code>ACT_GE_PROPERTY</code> (clé <code>schema.version</code>) et la vérifie au démarrage.
+    Le moteur du workflow-service écrit <code>7.2.0.x</code> ; le moteur 6.8 embarqué dans la UI
+    refuserait de démarrer sur ce schéma « plus récent »
+    (<code>FlowableWrongDbException</code>). Un partage de base est donc structurellement
+    impossible entre une UI 6.8 et un moteur 7.2.
+  </p>
+  <table>
+    <tr><th>Base</th><th>Propriétaire</th><th>Contenu</th></tr>
+    <tr>
+      <td><code>workflow_service</code></td>
+      <td>workflow-service (moteur 7.2)</td>
+      <td>Tables moteur <code>ACT_*</code> (gérées par Flowable,
+          <code>database-schema-update=true</code>) + tables métier gérées par
+          <strong>Flyway</strong> (<code>outbox_event</code>…). Jamais de migration Flyway sur
+          les tables <code>ACT_*</code>.</td>
+    </tr>
+    <tr>
+      <td><code>flowable_ui</code></td>
+      <td>Flowable UI (moteur 6.8 embarqué)</td>
+      <td>Tables du Modeler (<code>ACT_DE_*</code>), IDM (<code>ACT_ID_*</code>), config Admin
+          (<code>ACT_ADM_*</code>) et le moteur 6.8 interne de l'app Task.</td>
+    </tr>
+    <tr>
+      <td><code>segmentation_service</code></td>
+      <td>segmentation-service (moteur DMN 7.2)</td>
+      <td>Tables DMN + tables métier Flyway.</td>
+    </tr>
+  </table>
+  <p>
+    La base <code>flowable_ui</code> est créée automatiquement par
+    <code>infra/postgres/init-databases.sql</code> à la première initialisation du volume
+    Postgres. La liaison entre la UI et le moteur réel ne passe donc <strong>pas par la base de
+    données mais par l'API REST</strong> (<code>/process-api</code>).
+  </p>
+</section>
+
+<!-- ================================================================ -->
+<section id="guide">
+  <h2>8. Guide d'utilisation</h2>
+  <h3>Étape 1 — Démarrer l'infrastructure</h3>
+  <pre><code># depuis la racine backend/
+docker compose up -d
+# démarre : postgres, keycloak, redis, kafka et flowable-ui (8090)</code></pre>
+
+  <h3>Étape 2 — Démarrer les services Flowable</h3>
+  <pre><code>mvn -pl services/segmentation-service -am spring-boot:run   # DMN  (8092)
+mvn -pl services/workflow-service     -am spring-boot:run   # BPMN (8094)
+# les fichiers BPMN et DMN sont auto-déployés au démarrage</code></pre>
+
+  <h3>Étape 3 — Ouvrir la Flowable UI</h3>
+  <div class="callout ok">
+    <strong>http://localhost:8090/flowable-ui</strong>
+    Connexion : <kbd>admin</kbd> / <kbd>test</kbd>
+  </div>
+  <ol>
+    <li>Ouvrir l'application <strong>Admin</strong> (icône engrenage).</li>
+    <li>Section <strong>Process Engine</strong> → l'endpoint
+        <code>host.docker.internal:8094/process-api</code> est déjà configuré.</li>
+    <li>Onglet <strong>Definitions</strong> : <code>debtCollectionProcess</code> et les 6
+        sous-processus apparaissent, avec leur diagramme.</li>
+    <li>Onglet <strong>Process Instances</strong> : consulter les instances, leurs variables
+        (<code>qualification</code>, <code>segment</code>, <code>strategy</code>…), leur
+        historique et le diagramme d'exécution.</li>
+  </ol>
+
+  <h3>Étape 4 — Démarrer un processus et le voir dans la UI</h3>
+  <pre><code># chemin démo complet (synchrone, renvoie la qualification calculée)
+curl -X POST http://localhost:8094/api/v1/workflows/collection/start \
+  -H "X-Tenant-Id: tenant-demo" -H "Content-Type: application/json" \
+  -d '{"debtId":"DEBT-1001"}'
+
+# démarrage idempotent (201 créé / 200 déjà existant)
+curl -X POST http://localhost:8094/api/v1/workflows/processes \
+  -H "X-Tenant-Id: tenant-demo" -H "Content-Type: application/json" \
+  -d '{"debtId":"DEBT-1001"}'</code></pre>
+  <p>L'instance est ensuite visible dans <strong>Admin → Process Instances</strong>
+     (les processus actuels n'ayant ni tâche humaine ni timer, ils s'exécutent d'un trait :
+     consulter l'onglet <em>historique</em> pour les voir terminés).</p>
+
+  <h3>Dépannage</h3>
+  <table>
+    <tr><th>Symptôme</th><th>Cause / solution</th></tr>
+    <tr><td>La UI ne démarre pas au premier <code>docker compose up</code> (erreur connexion DB)</td>
+        <td>Course avec l'initialisation de Postgres au tout premier lancement du volume.
+            Relancer : <code>docker compose up -d flowable-ui</code>.</td></tr>
+    <tr><td>Admin affiche « engine unreachable »</td>
+        <td>workflow-service n'est pas démarré sur 8094, ou tourne avec un ancien
+            shared-kernel (sans l'exemption <code>/process-api</code>) — redémarrer le service.</td></tr>
+    <tr><td><code>400 Missing X-Tenant-Id</code> sur <code>/process-api</code></td>
+        <td>Ancien code : reconstruire (<code>mvn -pl services/workflow-service -am …</code>)
+            pour inclure le <code>TenantContextFilter</code> à jour.</td></tr>
+    <tr><td><code>FlowableWrongDbException</code> dans la UI</td>
+        <td>La UI a été pointée sur <code>workflow_service</code> (schéma 7.2) — elle doit
+            rester sur <code>flowable_ui</code>.</td></tr>
+  </table>
+</section>
+
+<!-- ================================================================ -->
+<section id="api">
+  <h2>9. API REST du workflow-service (base <code>/api/v1/workflows</code>)</h2>
+  <table>
+    <tr><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><code>POST /collection/start</code></td>
+        <td>Démarrage <strong>synchrone</strong> (chemin démo) : exécute le processus de bout en
+            bout et retourne <code>qualification</code>, <code>qualificationReason</code>,
+            <code>segment</code>, <code>strategy</code>, <code>status</code> lus dans
+            l'historique. Toujours 201.</td></tr>
+    <tr><td><code>POST /processes</code></td>
+        <td>Démarrage <strong>idempotent</strong> : 201 si créé, 200 si une instance active
+            existe déjà pour le même <code>debtId</code> + tenant.</td></tr>
+    <tr><td><code>GET  …/tasks</code> + <code>POST …/complete</code></td><td>Tâches humaines actives + complétion.</td></tr>
+    <tr><td><code>GET  …/history</code></td><td>Historique du processus (transitions, y compris timers/SLA).</td></tr>
+    <tr><td><code>GET  …/variables</code></td><td>Variables live d'une instance.</td></tr>
+    <tr><td><code>GET  …/incidents</code></td><td>Jobs en échec avec leurs exceptions.</td></tr>
+    <tr><td><code>GET  …/deadletter</code> + retry</td><td>Jobs en dead-letter + relance.</td></tr>
+    <tr><td><code>GET  …/timers</code> + trigger</td><td>Timers + déclenchement manuel (sans attendre l'échéance).</td></tr>
+  </table>
+  <p>
+    S'y ajoute l'<strong>API REST officielle Flowable</strong> (<code>/process-api/**</code>,
+    fournie par <code>flowable-spring-boot-starter-rest</code>) — celle que consomme la
+    Flowable UI Admin. Documentation Swagger du service :
+    <code>http://localhost:8094/swagger-ui.html</code>.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  Dept Collector — documentation générée le 3 juillet 2026 · branche <code>ft-setup-flowable</code> ·
+  moteur Flowable 7.2.0 · Flowable UI 6.8.0 (Docker)
+</footer>
+
+</body>
+</html>

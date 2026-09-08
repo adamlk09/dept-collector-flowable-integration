@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="collectionPriorityDefinitions"
+             name="Priorité de recouvrement"
+             namespace="http://www.deptcollector.com/dmn">
+
+  <!--
+    Milestone 2, second link in the chain: derives priority + a numeric priorityScore purely
+    from collectionPhase (already resolved by collection-staging.dmn), demonstrating one DMN
+    consuming another's output rather than re-deriving everything from raw inputs.
+  -->
+  <decision id="collectionPriorityDecision" name="Priorité de recouvrement">
+    <decisionTable id="dt_collectionPriorityDecision" hitPolicy="FIRST">
+
+      <input id="in_collectionPhase" label="Phase de recouvrement">
+        <inputExpression id="ie_collectionPhase" typeRef="string">
+          <text>collectionPhase</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_priority" label="Priorité" name="priority" typeRef="string"/>
+      <output id="out_priorityScore" label="Score de priorité" name="priorityScore" typeRef="number"/>
+
+      <rule id="R1">
+        <inputEntry id="R1_phase"><text>"COMMERCIAL"</text></inputEntry>
+        <outputEntry id="R1_priority"><text>"LOW"</text></outputEntry>
+        <outputEntry id="R1_score"><text>20</text></outputEntry>
+      </rule>
+      <rule id="R2">
+        <inputEntry id="R2_phase"><text>"AMIABLE"</text></inputEntry>
+        <outputEntry id="R2_priority"><text>"MEDIUM"</text></outputEntry>
+        <outputEntry id="R2_score"><text>45</text></outputEntry>
+      </rule>
+      <rule id="R3">
+        <inputEntry id="R3_phase"><text>"PRE_CONTENTIOUS"</text></inputEntry>
+        <outputEntry id="R3_priority"><text>"MEDIUM"</text></outputEntry>
+        <outputEntry id="R3_score"><text>55</text></outputEntry>
+      </rule>
+      <rule id="R4">
+        <inputEntry id="R4_phase"><text>"HIGH_EXPOSURE"</text></inputEntry>
+        <outputEntry id="R4_priority"><text>"HIGH"</text></outputEntry>
+        <outputEntry id="R4_score"><text>75</text></outputEntry>
+      </rule>
+      <rule id="R5">
+        <inputEntry id="R5_phase"><text>"LEGAL"</text></inputEntry>
+        <outputEntry id="R5_priority"><text>"CRITICAL"</text></outputEntry>
+        <outputEntry id="R5_score"><text>95</text></outputEntry>
+      </rule>
+      <rule id="R6">
+        <inputEntry id="R6_phase"><text></text></inputEntry>
+        <outputEntry id="R6_priority"><text>"LOW"</text></outputEntry>
+        <outputEntry id="R6_score"><text>10</text></outputEntry>
+      </rule>
+
+    </decisionTable>
+  </decision>
+</definitions>

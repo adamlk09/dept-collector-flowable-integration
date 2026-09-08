@@ -28,6 +28,13 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-starter-validation</artifactId>
       </dependency>
+    <!-- Spring Batch ingestion of the irregular-portfolio CSV (doc §12) — its own JobRepository
+         tables are auto-created via spring.batch.jdbc.initialize-schema (see application.yml),
+         separate from Flyway-owned business tables and from Flowable's engine-managed tables. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-batch</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-core</artifactId>
@@ -44,6 +51,14 @@
     <dependency>
       <groupId>org.flowable</groupId>
       <artifactId>flowable-spring-boot-starter-process</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
+    <!-- Official Flowable REST API (/process-api/**) — the backend a Flowable Admin UI connects to.
+         Its security auto-config is excluded (see WorkflowApplication) so the endpoints stay under
+         the shared-kernel security chain instead of Flowable's own basic-auth/IDM. -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-rest</artifactId>
       <version>${flowable.version}</version>
     </dependency>
     <dependency>

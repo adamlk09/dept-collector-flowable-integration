@@ -4,7 +4,8 @@ public record StartCollectionProcessResponse(
         String processInstanceId,
         String debtId,
         String customerId,
-        Integer score,
+        String qualification,
+        String qualificationReason,
         String segment,
         String strategy,
         String status

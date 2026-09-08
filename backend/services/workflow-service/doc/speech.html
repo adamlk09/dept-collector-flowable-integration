@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowable & le workflow de recouvrement — Speech équipe</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --ink: #1f2430;
+    --muted: #5b6472;
+    --accent: #1f6feb;
+    --accent-soft: #e7f0ff;
+    --ok: #1a7f37;
+    --ok-soft: #e6f4ea;
+    --warn: #9a6700;
+    --warn-soft: #fff8e1;
+    --danger: #c0392b;
+    --danger-soft: #fdecea;
+    --code-bg: #f0f2f5;
+    --border: #e3e6ea;
+    --bpmn: #1f6feb;
+    --bpmn-soft: #e7f0ff;
+    --dmn: #9a6700;
+    --dmn-soft: #fff8e1;
+    --cmmn: #7a3fc9;
+    --cmmn-soft: #f1e8fc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #10233f 0%, #1f6feb 100%);
+    color: #fff; padding: 48px 24px 40px;
+  }
+  header.hero .inner { max-width: 1000px; margin: 0 auto; }
+  header.hero p.eyebrow {
+    text-transform: uppercase; letter-spacing: .12em; font-size: .78rem;
+    opacity: .75; margin: 0 0 10px; font-weight: 600;
+  }
+  header.hero h1 { margin: 0 0 10px; font-size: 2.1rem; }
+  header.hero p.lede { margin: 0; opacity: .85; max-width: 720px; }
+  .badges { margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    padding: 4px 13px; border-radius: 999px; font-size: .8rem;
+  }
+  nav.toc {
+    max-width: 1000px; margin: -22px auto 0; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .88rem;
+    box-shadow: 0 4px 14px rgba(16,35,63,.08);
+    position: relative; z-index: 1;
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  nav.toc a:hover { text-decoration: underline; }
+  main { max-width: 1000px; margin: 32px auto 64px; padding: 0 24px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 32px; margin-bottom: 28px;
+  }
+  section > .timing {
+    display: inline-block; font-size: .78rem; font-weight: 700;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 3px 11px; border-radius: 999px; margin-bottom: 10px;
+    letter-spacing: .02em;
+  }
+  h2 { margin-top: 0; font-size: 1.4rem; border-bottom: 2px solid var(--accent-soft); padding-bottom: 10px; }
+  h3 { font-size: 1.08rem; margin: 26px 0 10px; }
+  h4 { font-size: .98rem; margin: 18px 0 6px; color: var(--muted); }
+  p.lead { color: var(--muted); font-size: 1.02rem; }
+  p.speak {
+    background: var(--bg); border-left: 3px solid var(--accent);
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0;
+    font-style: italic; color: #2a3040;
+  }
+  p.speak::before { content: "💬 "; font-style: normal; }
+  code, pre {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: .875em;
+  }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+  pre {
+    background: #10233f; color: #e8ecf5; padding: 16px 18px; border-radius: 8px;
+    overflow-x: auto; line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+  td code { font-size: .85em; }
+
+  .engine-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; margin: 16px 0;
+    border-left-width: 4px;
+  }
+  .engine-card.bpmn { border-left-color: var(--bpmn); background: linear-gradient(90deg, var(--bpmn-soft), var(--card) 18%); }
+  .engine-card.dmn { border-left-color: var(--dmn); background: linear-gradient(90deg, var(--dmn-soft), var(--card) 18%); }
+  .engine-card.cmmn { border-left-color: var(--cmmn); background: linear-gradient(90deg, var(--cmmn-soft), var(--card) 18%); }
+  .engine-card .tag {
+    display: inline-block; font-family: Consolas, monospace; font-weight: 700; font-size: .75rem;
+    letter-spacing: .06em; padding: 3px 9px; border-radius: 6px; color: #fff; margin-bottom: 8px;
+  }
+  .engine-card.bpmn .tag { background: var(--bpmn); }
+  .engine-card.dmn .tag { background: var(--dmn); }
+  .engine-card.cmmn .tag { background: var(--cmmn); }
+  .engine-card h4 { margin: 0 0 6px; color: var(--ink); font-size: 1rem; }
+  .engine-card p { margin: 0 0 8px; font-size: .92rem; }
+  .engine-card p:last-child { margin-bottom: 0; }
+
+  .flow-steps {
+    display: flex; flex-direction: column; gap: 0; margin: 18px 0;
+    border-left: 2px solid var(--border); padding-left: 22px; position: relative;
+  }
+  .flow-steps .fstep { position: relative; padding-bottom: 20px; }
+  .flow-steps .fstep:last-child { padding-bottom: 0; }
+  .flow-steps .fstep::before {
+    content: ""; position: absolute; left: -27px; top: 4px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--card); box-shadow: 0 0 0 2px var(--accent);
+  }
+  .flow-steps .fstep b { color: var(--ink); }
+  .flow-steps .fstep .meta {
+    display: block; font-family: Consolas, monospace; font-size: .78rem;
+    color: var(--muted); margin-top: 3px;
+  }
+
+  .why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 16px 0; }
+  .why-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px;
+  }
+  .why-card .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-weight: 700; font-size: .82rem; margin-bottom: 10px;
+  }
+  .why-card h4 { margin: 0 0 6px; color: var(--ink); }
+  .why-card p { margin: 0; font-size: .9rem; color: var(--muted); }
+
+  .callout {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--ok-soft); border: 1px solid var(--ok);
+    border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: .92rem;
+  }
+  .callout .icon { flex: none; font-size: 1.1rem; }
+
+  footer {
+    max-width: 1000px; margin: 0 auto 60px; padding: 0 24px;
+    color: var(--muted); font-size: .85rem; text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    section { padding: 22px 18px; }
+    header.hero { padding: 36px 18px 30px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <p class="eyebrow">Support de présentation — équipe</p>
+    <h1>Flowable & notre workflow de recouvrement</h1>
+    <p class="lede">Script détaillé (5-10 min à l'oral) pour présenter Flowable, ses trois moteurs, et l'exemple concret <code style="background:rgba(255,255,255,.15);color:#fff;">bankingRecoveryProcess</code> que nous avons construit et vérifié en direct.</p>
+    <div class="badges">
+      <span class="badge">BPMN — Process Engine</span>
+      <span class="badge">DMN — Decision Engine</span>
+      <span class="badge">CMMN — Case Engine</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#intro">1. Accroche</a>
+  <a href="#contexte">2. Contexte métier & intégration</a>
+  <a href="#flowable">3. C'est quoi Flowable</a>
+  <a href="#moteurs">4. Les trois moteurs</a>
+  <a href="#architecture">5. Notre architecture technique</a>
+  <a href="#exemple">6. L'exemple pas à pas</a>
+  <a href="#pourquoi">7. Pourquoi Flowable ici</a>
+  <a href="#conclusion">8. Conclusion</a>
+</nav>
+
+<main>
+
+  <section id="intro">
+    <span class="timing">≈ 30 sec</span>
+    <h2>1. Accroche</h2>
+    <p class="speak">On a un problème classique : un dossier de recouvrement de créance ne suit pas un chemin unique. Parfois c'est un simple rappel téléphonique, parfois ça part en contentieux avec un dossier juridique complet, avec plusieurs équipes qui interviennent dans le désordre. Coder ça à la main en Java, avec des <code>if/else</code> partout, ça devient vite illisible et impossible à faire évoluer sans redéployer. C'est exactement le problème que Flowable résout, et je vais vous montrer comment on l'a mis en place sur notre cas réel.</p>
+  </section>
+
+  <section id="contexte">
+    <span class="timing">≈ 1-2 min</span>
+    <h2>2. Contexte métier & où les moteurs s'appellent entre eux</h2>
+    <p class="speak">Pour les nouveaux arrivants sur le projet : notre plateforme découpe le recouvrement de créances en 25 microservices autonomes, chacun avec sa propre base de données. Le "processus métier" qu'on modélise ici, c'est le parcours d'un dossier de créance depuis sa détection jusqu'à sa clôture — un parcours qui traverse plusieurs de ces services, et c'est précisément ce que Flowable orchestre.</p>
+    <p>Le processus métier complet, en une phrase : <b>une dette est identifiée → elle est qualifiée automatiquement (quel segment client, quel niveau de risque, quelle action) → un agent humain valide ou corrige cette qualification → le dossier est traité soit par un parcours standard (relance, promesse de paiement), soit par un parcours contentieux (dossier juridique)</b>. Rien de tout ça n'est codé en dur dans un seul gros service : chaque étape est déléguée au moteur le mieux adapté, et les trois moteurs Flowable ne vivent pas isolés — le BPMN les appelle explicitement au fil de l'exécution.</p>
+    <h3>Qui appelle qui, concrètement</h3>
+    <div class="flow-steps">
+      <div class="fstep">
+        <b>BPMN → DMN</b> — à l'étape <code>stageRecovery</code> (ou <code>segmentDebt</code> sur l'autre process), le moteur BPMN de <code>workflow-service</code> délègue le calcul de qualification à un <b>service task</b> (<code>StageRecoveryDelegate</code>/<code>SegmentDebtDelegate</code>) qui fait un appel REST synchrone vers <code>segmentation-service</code>, où tourne le moteur DMN. La table de décision répond avec le segment/stage/priorité, et le BPMN reprend la main avec ces variables déjà posées sur le process.
+        <span class="meta">SegmentationClient → POST /api/v1/segmentation/execute (fallback local si indisponible)</span>
+      </div>
+      <div class="fstep">
+        <b>BPMN → CMMN</b> — quand la porte de stage route vers le cas contentieux le plus lourd (<code>STAGE3_LITIGATION</code>), le BPMN n'essaie <b>pas</b> de modéliser la suite en étapes séquentielles : il délègue à un <b>case CMMN</b> via <code>StartLegalCaseDelegate</code>, qui utilise <code>CmmnRuntimeService</code> pour démarrer une instance de case. Le BPMN reste "en attente" pendant que le case tourne son propre cycle de vie, indépendant, jusqu'à ce que la tâche "Close Case" le termine.
+        <span class="meta">CmmnRuntimeService.createCaseInstanceBuilder() — pas d'élément BPMN natif pour ça, d'où le delegate</span>
+      </div>
+      <div class="fstep">
+        <b>DMN et CMMN ne se parlent jamais directement</b> — c'est toujours le BPMN qui est au centre et qui décide, à un point précis du process, d'appeler l'un ou l'autre. C'est ce qui rend le système lisible : un seul diagramme (le BPMN) donne la vue d'ensemble de "qui fait quoi, quand".
+      </div>
+    </div>
+    <p>Pourquoi c'est important à comprendre dès le premier jour sur ce projet : si vous cherchez "où est calculée telle règle métier", la réponse dépend de la nature de la règle — un <b>ordre d'étapes</b> se trouve dans le BPMN, un <b>calcul/seuil</b> se trouve dans une table DMN (<code>segmentation-service</code>), un <b>travail non ordonné avec plusieurs tâches possibles en parallèle</b> se trouve dans le CMMN. Ne cherchez jamais la logique de décision dans le code Java du BPMN — elle est volontairement externalisée dans les fichiers DMN pour pouvoir évoluer sans redéploiement.</p>
+  </section>
+
+  <section id="flowable">
+    <span class="timing">≈ 1 min</span>
+    <h2>3. C'est quoi Flowable, en une phrase</h2>
+    <p class="speak">Flowable, c'est un moteur d'exécution de processus métier, open source, qu'on embarque directement dans nos microservices Spring Boot — pas un gros outil externe à administrer à part. Le principe : au lieu d'écrire la logique métier en code impératif, on la <b>déclare</b> dans des fichiers — des diagrammes BPMN, des tables de décision DMN, des cases CMMN — et le moteur les exécute, les persiste en base, et nous donne gratuitement l'historique complet de chaque dossier.</p>
+    <p>Chez nous, ce moteur tourne dans deux services distincts, chacun avec une seule responsabilité :</p>
+    <table>
+      <tr><th>Service</th><th>Moteur Flowable</th><th>Rôle</th></tr>
+      <tr><td><code>workflow-service</code></td><td>BPMN + CMMN</td><td>Orchestre le process et pilote les cases juridiques</td></tr>
+      <tr><td><code>segmentation-service</code></td><td>DMN</td><td>Calcule les décisions métier (stage, priorité, action)</td></tr>
+    </table>
+    <p>Les deux moteurs communiquent en REST — <code>workflow-service</code> appelle <code>segmentation-service</code> à l'étape de staging, avec un <b>fallback local</b> si le service DMN est indisponible : le process ne tombe jamais en panne à cause d'un service externe injoignable.</p>
+  </section>
+
+  <section id="moteurs">
+    <span class="timing">≈ 2-3 min</span>
+    <h2>4. Les trois moteurs, un seul dossier</h2>
+    <p class="speak">Flowable, ce n'est pas un seul outil, ce sont trois moteurs complémentaires, et c'est ça la vraie force. Chacun résout un problème différent — même dossier, trois logiques.</p>
+
+    <div class="engine-card bpmn">
+      <span class="tag">BPMN</span>
+      <h4>Le chef d'orchestre — ordre imposé</h4>
+      <p>Le BPMN décrit un <b>ordre séquentiel</b> : « d'abord ça, puis ça, puis on attend une validation humaine, puis on route selon une condition ». C'est le squelette du process — étapes, portes de décision (gateways), timers, événements.</p>
+      <p><code>services/workflow-service/src/main/resources/processes/banking-recovery-process.bpmn20.xml</code> — process key <code>bankingRecoveryProcess</code>.</p>
+    </div>
+
+    <div class="engine-card dmn">
+      <span class="tag">DMN</span>
+      <h4>La logique de décision, isolée</h4>
+      <p>Une table de décision : « avec ces données en entrée, quelle sortie ? » — sans coder ça en dur dans le process. L'intérêt majeur : changer un seuil métier (ex. 90 → 75 jours de retard pour déclencher un contentieux) se fait en modifiant une table de décision, <b>pas</b> le diagramme du process ni le code Java. Chaque exécution est tracée individuellement — entrées, règle déclenchée, sortie.</p>
+      <p>Chaîne de 4 décisions dans <code>segmentation-service</code> : <code>customerSegmentationDecision</code> → <code>collectionStagingDecision</code> → <code>collectionPriorityDecision</code> → <code>collectionActionDecision</code>, orchestrées côté serveur en un seul appel REST pour ne pas multiplier les allers-retours réseau.</p>
+    </div>
+
+    <div class="engine-card cmmn">
+      <span class="tag">CMMN</span>
+      <h4>Le travail non séquentiel — pas d'ordre imposé</h4>
+      <p>Pour la partie qu'aucun organigramme figé ne peut décrire correctement : le travail de dossier juridique. Un case expose un plateau de tâches discrétionnaires que l'équipe peut traiter <b>dans n'importe quel ordre</b>, selon la réalité du dossier. Le case se termine tout seul (sentry de sortie) dès que la tâche de clôture est complétée.</p>
+      <p><code>services/workflow-service/src/main/resources/cases/bankingCollectionCase.cmmn.xml</code> — 7 tâches humaines : Investigate Customer, Request Additional Documents, Contact Customer, Request Manager Approval, Send Formal Notice, Escalate to Legal, Close Case.</p>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <span class="timing">≈ 1-2 min</span>
+    <h2>5. Notre architecture technique</h2>
+    <p class="speak">Quelques détails d'implémentation qui expliquent pourquoi ce système est robuste et pas juste une démo qui tourne par chance.</p>
+    <h3>Multi-tenant sans le tenant natif de Flowable</h3>
+    <p>Chaque requête porte un header <code>X-Tenant-Id</code> obligatoire. Mais le BPMN et le DMN se déploient sur le déploiement "par défaut" de Flowable (sans tenant natif) — sinon le moteur cherche une définition "pour le tenant X" qui n'existe pas et lève une exception. À la place, le <code>tenantId</code> est porté comme <b>variable de process</b>, et chaque requête qui liste des instances filtre explicitement dessus.</p>
+    <h3>Démarrage idempotent</h3>
+    <p>L'identifiant de dette (<code>debtId</code>) sert de <b>business key</b> Flowable. Avant de démarrer un process, on interroge d'abord l'<b>historique</b> (pas le runtime — un process peut déjà être allé plus loin ou être terminé) pour voir si une instance avec la même clé existe déjà. Si oui, on la retourne (HTTP 200) au lieu d'en créer une deuxième (HTTP 201).</p>
+    <pre><code>POST /api/v1/workflows/banking-recovery/processes
+X-Tenant-Id: tenant-demo
+{
+  "debtId": "TECHLEAD-DEMO-01",
+  "customerId": "CUST-01",
+  "clientSegment": "ENTREPRISES",
+  "overdueDays": 95,
+  "totalExposure": 42000
+}
+→ 201 Created  { "processInstanceId": "...", "created": true }
+→ (rejoué)      { "processInstanceId": "...", "created": false }  // 200 OK</code></pre>
+    <h3>Le moteur asynchrone tourne réellement</h3>
+    <p>Le timer de relance n'est pas décoratif : l'<code>async executor</code> Flowable tourne en tâche de fond et déclenche les timers à échéance, sans intervention manuelle. On l'a vérifié en direct — un timer de 30 secondes (calibré pour la démo, 2 jours en production) s'est déclenché tout seul pendant qu'on naviguait dans l'interface, et a fait avancer le dossier jusqu'à l'escalade.</p>
+  </section>
+
+  <section id="exemple">
+    <span class="timing">≈ 2-3 min</span>
+    <h2>6. L'exemple pas à pas</h2>
+    <p class="speak">Concrètement, voici ce qui se passe pour un dossier réel, du démarrage jusqu'à la clôture.</p>
+    <div class="flow-steps">
+      <div class="fstep">
+        <b>Démarrage</b> — un appel REST crée l'instance avec un <code>debtId</code>, un client, un montant, un nombre de jours de retard.
+        <span class="meta">POST /banking-recovery/processes</span>
+      </div>
+      <div class="fstep">
+        <b>Trois étapes automatiques</b> — Extract Irregular Account → Check KYC and Reachability → Stage Recovery File. Cette dernière appelle la chaîne de 4 décisions DMN et fixe les variables <code>stage</code>, <code>priority</code>, <code>action</code>, <code>recoveryTeam</code>.
+        <span class="meta">serviceTask × 3 — délégués Spring (StageRecoveryDelegate)</span>
+      </div>
+      <div class="fstep">
+        <b>Point d'arrêt — tâche humaine</b> — "Handle Recovery Case", assignée dynamiquement à un groupe candidat selon <code>${recoveryTeam}</code>. Un agent la réclame et la complète, au clic, depuis Flowable Admin UI.
+        <span class="meta">userTask — candidateGroups dynamique + boundary timer P2D (relance SLA)</span>
+      </div>
+      <div class="fstep">
+        <b>Le process reprend seul</b> — porte d'escalade, puis porte de stage. Deux issues possibles selon ce qu'a calculé le DMN :
+        <span class="meta">exclusiveGateway × 2</span>
+      </div>
+      <div class="fstep">
+        <b>Cas léger</b> — recouvrement standard : la porte événementielle attend soit un paiement (message), soit l'expiration d'un timer. Sans paiement à temps → escalade automatique.
+        <span class="meta">eventGateway — timer PT30S (démo) / message paymentReceivedMessage</span>
+      </div>
+      <div class="fstep">
+        <b>Cas lourd</b> — fort retard + forte exposition : ouverture directe d'un <b>case CMMN</b> pour le passage en contentieux juridique. Sept tâches discrétionnaires s'ouvrent d'un coup, aucun ordre imposé.
+        <span class="meta">startLegalCase → CmmnRuntimeService.createCaseInstanceBuilder()</span>
+      </div>
+      <div class="fstep">
+        <b>Clôture</b> — que ce soit côté BPMN (paiement reçu / escalade) ou côté CMMN (tâche "Close Case" complétée, qui déclenche la sentry de sortie et termine tout le case d'un coup), tout est visible et historisé.
+      </div>
+    </div>
+    <div class="callout">
+      <span class="icon">✅</span>
+      <div>Tout ce parcours est pilotable et observable <b>entièrement depuis Flowable Admin UI</b> — assignation, complétion de tâche, relecture du diagramme à chaque étape, consultation des exécutions DMN, suivi du plateau CMMN — sans une seule commande terminal après le démarrage initial.</div>
+    </div>
+  </section>
+
+  <section id="pourquoi">
+    <span class="timing">≈ 1-2 min</span>
+    <h2>7. Pourquoi Flowable est la bonne solution ici</h2>
+    <p class="speak">Trois raisons concrètes, pas juste "c'est un bon outil".</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <span class="num">1</span>
+        <h4>Un workflow hybride par nature</h4>
+        <p>Une partie strictement séquentielle (BPMN), une partie purement décisionnelle (DMN), une partie totalement libre (CMMN). Peu d'outils couvrent les trois avec le même moteur, la même base, la même API.</p>
+      </div>
+      <div class="why-card">
+        <span class="num">2</span>
+        <h4>La traçabilité est gratuite</h4>
+        <p>Chaque tâche, chaque décision, chaque timer déclenché est historisé automatiquement — rien codé pour ça. Pour un métier réglementé comme le recouvrement, c'est un audit trail livré out-of-the-box.</p>
+      </div>
+      <div class="why-card">
+        <span class="num">3</span>
+        <h4>Séparation des responsabilités</h4>
+        <p>La logique de décision métier vit dans des fichiers DMN modifiables sans redéploiement Java. Le code applicatif ne fait que l'intégration technique — les règles métier évoluent sans toucher au code.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="conclusion">
+    <span class="timing">≈ 30 sec</span>
+    <h2>8. Conclusion</h2>
+    <p class="speak">Voilà où on en est : le squelette complet tourne, on a un exemple de bout en bout vérifié en live, entièrement pilotable depuis l'interface Admin sans une ligne de commande. Des questions ?</p>
+  </section>
+
+</main>
+
+<footer>
+  Support de présentation interne — <code>workflow-service/doc/speech.html</code> · voir aussi <code>demo-script.md</code>, <code>installation-execution.md</code>, <code>segmentation.md</code> dans ce même dossier.
+</footer>
+
+</body>
+</html>

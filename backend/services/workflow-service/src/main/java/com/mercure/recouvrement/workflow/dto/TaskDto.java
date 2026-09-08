@@ -7,5 +7,6 @@ public record TaskDto(
         String name,
         String processInstanceId,
         String processDefinitionId,
+        String assignee,
         Date createTime
 ) {}

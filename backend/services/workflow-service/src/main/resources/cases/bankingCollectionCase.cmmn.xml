@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/CMMN/20151109/MODEL"
+             xmlns:flowable="http://flowable.org/cmmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             targetNamespace="http://mercure.recouvrement/workflow">
+
+  <!--
+    Discretionary case management for the STAGE3_LITIGATION / high-exposure branch of
+    bankingRecoveryProcess — started by StartLegalCaseDelegate (a plain service task in the BPMN,
+    since Flowable has no native BPMN "call CMMN case" element; starting it via
+    CmmnRuntimeService from a JavaDelegate is the standard integration pattern).
+
+    Unlike BPMN's fixed sequence, every task here is available from the start; the agent/manager/
+    legal team completes whichever ones the case actually needs, in any order. The case ends the
+    moment "Close Case" is completed (exitCriterion on the plan model), regardless of which other
+    discretionary tasks were used or left untouched.
+  -->
+  <case id="bankingCollectionCase" name="Dossier de recouvrement bancaire">
+    <casePlanModel id="bankingCollectionCasePlanModel" name="Plan du dossier de recouvrement bancaire">
+
+      <planItem id="planItem_investigate" name="Enquêter sur le client" definitionRef="task_investigate" />
+      <planItem id="planItem_requestDocs" name="Demander des documents complémentaires" definitionRef="task_requestDocs" />
+      <planItem id="planItem_contactCustomer" name="Contacter le client" definitionRef="task_contactCustomer" />
+      <planItem id="planItem_managerApproval" name="Demander l'approbation du manager" definitionRef="task_managerApproval" />
+      <planItem id="planItem_formalNotice" name="Envoyer une mise en demeure" definitionRef="task_formalNotice" />
+      <planItem id="planItem_escalateLegal" name="Escalader au service juridique" definitionRef="task_escalateLegal" />
+      <planItem id="planItem_closeCase" name="Clôturer le dossier" definitionRef="task_closeCase" />
+
+      <!-- Completing "Close Case" terminates the whole case plan, whatever else is still open. -->
+      <sentry id="sentry_close">
+        <planItemOnPart sourceRef="planItem_closeCase">
+          <standardEvent>complete</standardEvent>
+        </planItemOnPart>
+      </sentry>
+
+      <humanTask id="task_investigate" name="Enquêter sur le client" isBlocking="true"
+                 flowable:candidateGroups="collectionAgents" />
+      <humanTask id="task_requestDocs" name="Demander des documents complémentaires" isBlocking="true"
+                 flowable:candidateGroups="collectionAgents" />
+      <humanTask id="task_contactCustomer" name="Contacter le client" isBlocking="true"
+                 flowable:candidateGroups="collectionAgents" />
+      <humanTask id="task_managerApproval" name="Demander l'approbation du manager" isBlocking="true"
+                 flowable:candidateGroups="collectionManagers" />
+      <humanTask id="task_formalNotice" name="Envoyer une mise en demeure" isBlocking="true"
+                 flowable:candidateGroups="collectionAgents" />
+      <humanTask id="task_escalateLegal" name="Escalader au service juridique" isBlocking="true"
+                 flowable:candidateGroups="legalTeam" />
+      <humanTask id="task_closeCase" name="Clôturer le dossier" isBlocking="true"
+                 flowable:candidateGroups="legalTeam" />
+
+      <exitCriterion id="exitOnClose" sentryRef="sentry_close" />
+
+    </casePlanModel>
+  </case>
+
+</definitions>

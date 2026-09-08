@@ -1,86 +1,166 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<definitions xmlns="http://www.omg.org/spec/DMN/20151101/dmn.xsd"
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101"
              xmlns:flowable="http://flowable.org/dmn"
-             id="debtSegmentationDefinitions"
-             name="Debt Segmentation"
+             id="collectionQualificationDefinitions"
+             name="Collection Qualification"
              namespace="http://www.deptcollector.com/dmn">
 
-  <decision id="debtSegmentation" name="Debt Segmentation">
-    <decisionTable id="dt_debtSegmentation" hitPolicy="FIRST">
+  <!--
+    Behavioral collection qualification (see workflow-service doc/segmentation.md, EPIC 7).
+    No numeric scoring: the file is qualified from the categorical results of EPIC 1-6.
+    hitPolicy=FIRST so the rules are evaluated top-to-bottom and the first match wins,
+    mirroring the EPIC 7 priority order (most blocking/escalating first).
+  -->
+  <decision id="collectionQualification" name="Collection Qualification">
+    <decisionTable id="dt_collectionQualification" hitPolicy="FIRST">
 
-      <input id="in_amount" label="Montant (€)">
-        <inputExpression id="ie_amount" typeRef="double">
-          <text>amount</text>
+      <input id="in_clientInfoStatus" label="Infos client (EPIC 1)">
+        <inputExpression id="ie_clientInfoStatus" typeRef="string">
+          <text>clientInfoStatus</text>
         </inputExpression>
       </input>
 
-      <input id="in_daysOverdue" label="Jours de retard">
-        <inputExpression id="ie_daysOverdue" typeRef="integer">
-          <text>daysOverdue</text>
+      <input id="in_debtStatus" label="Statut dette (EPIC 3)">
+        <inputExpression id="ie_debtStatus" typeRef="string">
+          <text>debtStatus</text>
         </inputExpression>
       </input>
 
-      <input id="in_clientType" label="Type client">
-        <inputExpression id="ie_clientType" typeRef="string">
-          <text>clientType</text>
+      <input id="in_reachable" label="Joignable">
+        <inputExpression id="ie_reachable" typeRef="boolean">
+          <text>reachable</text>
         </inputExpression>
       </input>
 
-      <output id="out_segment"     label="Segment"     name="segment"     typeRef="string"/>
-      <output id="out_explication" label="Explication" name="explication" typeRef="string"/>
+      <input id="in_contractStatus" label="Statut contrat (EPIC 2)">
+        <inputExpression id="ie_contractStatus" typeRef="string">
+          <text>contractStatus</text>
+        </inputExpression>
+      </input>
 
-      <!-- R1 : montant très élevé → procédure légale immédiate -->
+      <input id="in_paymentHistory" label="Historique paiements (EPIC 4)">
+        <inputExpression id="ie_paymentHistory" typeRef="string">
+          <text>paymentHistory</text>
+        </inputExpression>
+      </input>
+
+      <input id="in_collectionStage" label="Stade de relance (EPIC 5)">
+        <inputExpression id="ie_collectionStage" typeRef="string">
+          <text>collectionStage</text>
+        </inputExpression>
+      </input>
+
+      <input id="in_promiseStatus" label="Promesse (EPIC 6)">
+        <inputExpression id="ie_promiseStatus" typeRef="string">
+          <text>promiseStatus</text>
+        </inputExpression>
+      </input>
+
+      <output id="out_qualification"       label="Qualification" name="qualification"       typeRef="string"/>
+      <output id="out_qualificationReason" label="Explication"   name="qualificationReason" typeRef="string"/>
+
+      <!-- Cas 1 — informations client incomplètes : rien d'autre n'est possible -->
       <rule id="R1">
-        <inputEntry id="R1_amount"><text>&gt; 50000</text></inputEntry>
-        <inputEntry id="R1_days"><text></text></inputEntry>
-        <inputEntry id="R1_client"><text></text></inputEntry>
-        <outputEntry id="R1_segment"><text>"LEGAL"</text></outputEntry>
-        <outputEntry id="R1_explication"><text>"R1 — Montant supérieur à 50 000 € : procédure légale requise"</text></outputEntry>
+        <inputEntry id="R1_clientInfo"><text>"CLIENT_INFORMATION_INCOMPLETE"</text></inputEntry>
+        <inputEntry id="R1_debt"><text></text></inputEntry>
+        <inputEntry id="R1_reachable"><text></text></inputEntry>
+        <inputEntry id="R1_contract"><text></text></inputEntry>
+        <inputEntry id="R1_history"><text></text></inputEntry>
+        <inputEntry id="R1_stage"><text></text></inputEntry>
+        <inputEntry id="R1_promise"><text></text></inputEntry>
+        <outputEntry id="R1_qualif"><text>"CLIENT_INFORMATION_INCOMPLETE"</text></outputEntry>
+        <outputEntry id="R1_reason"><text>"Client information is incomplete; collection cannot start."</text></outputEntry>
       </rule>
 
-      <!-- R2 : créance très ancienne → procédure légale -->
+      <!-- Cas 2 — dette déjà payée : clôturer -->
       <rule id="R2">
-        <inputEntry id="R2_amount"><text></text></inputEntry>
-        <inputEntry id="R2_days"><text>&gt; 180</text></inputEntry>
-        <inputEntry id="R2_client"><text></text></inputEntry>
-        <outputEntry id="R2_segment"><text>"LEGAL"</text></outputEntry>
-        <outputEntry id="R2_explication"><text>"R2 — Créance supérieure à 180 jours : procédure légale"</text></outputEntry>
+        <inputEntry id="R2_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R2_debt"><text>"PAID_DEBT"</text></inputEntry>
+        <inputEntry id="R2_reachable"><text></text></inputEntry>
+        <inputEntry id="R2_contract"><text></text></inputEntry>
+        <inputEntry id="R2_history"><text></text></inputEntry>
+        <inputEntry id="R2_stage"><text></text></inputEntry>
+        <inputEntry id="R2_promise"><text></text></inputEntry>
+        <outputEntry id="R2_qualif"><text>"DEBT_CLOSED"</text></outputEntry>
+        <outputEntry id="R2_reason"><text>"Debt is already paid; file should be closed."</text></outputEntry>
       </rule>
 
-      <!-- R3 : entreprise + montant élevé + retard significatif → critique -->
+      <!-- Cas 6 — client injoignable : mission de recherche d'informations -->
       <rule id="R3">
-        <inputEntry id="R3_amount"><text>&gt; 10000</text></inputEntry>
-        <inputEntry id="R3_days"><text>&gt; 60</text></inputEntry>
-        <inputEntry id="R3_client"><text>"ENTERPRISE"</text></inputEntry>
-        <outputEntry id="R3_segment"><text>"CRITICAL"</text></outputEntry>
-        <outputEntry id="R3_explication"><text>"R3 — Entreprise : montant élevé et retard significatif"</text></outputEntry>
+        <inputEntry id="R3_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R3_debt"><text></text></inputEntry>
+        <inputEntry id="R3_reachable"><text>false</text></inputEntry>
+        <inputEntry id="R3_contract"><text></text></inputEntry>
+        <inputEntry id="R3_history"><text></text></inputEntry>
+        <inputEntry id="R3_stage"><text></text></inputEntry>
+        <inputEntry id="R3_promise"><text></text></inputEntry>
+        <outputEntry id="R3_qualif"><text>"INFO_RESEARCH"</text></outputEntry>
+        <outputEntry id="R3_reason"><text>"Client is unreachable; an information-research mission is required."</text></outputEntry>
       </rule>
 
-      <!-- R4 : montant important + retard long → critique -->
+      <!-- Cas 8 — conditions juridiques réunies : contrat résilié + relances multiples + aucun paiement -->
       <rule id="R4">
-        <inputEntry id="R4_amount"><text>&gt; 5000</text></inputEntry>
-        <inputEntry id="R4_days"><text>&gt; 90</text></inputEntry>
-        <inputEntry id="R4_client"><text></text></inputEntry>
-        <outputEntry id="R4_segment"><text>"CRITICAL"</text></outputEntry>
-        <outputEntry id="R4_explication"><text>"R4 — Montant important avec retard long"</text></outputEntry>
+        <inputEntry id="R4_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R4_debt"><text></text></inputEntry>
+        <inputEntry id="R4_reachable"><text></text></inputEntry>
+        <inputEntry id="R4_contract"><text>"TERMINATED_CONTRACT"</text></inputEntry>
+        <inputEntry id="R4_history"><text>"NO_PAYMENT"</text></inputEntry>
+        <inputEntry id="R4_stage"><text>"MULTIPLE_FOLLOW_UPS"</text></inputEntry>
+        <inputEntry id="R4_promise"><text></text></inputEntry>
+        <outputEntry id="R4_qualif"><text>"LEGAL"</text></outputEntry>
+        <outputEntry id="R4_reason"><text>"Legal conditions met: terminated contract, multiple unsuccessful follow-ups, no payment."</text></outputEntry>
       </rule>
 
-      <!-- R5 : retard significatif → critique -->
+      <!-- Cas 7 — relances multiples sans succès : transfert pré-juridique -->
       <rule id="R5">
-        <inputEntry id="R5_amount"><text></text></inputEntry>
-        <inputEntry id="R5_days"><text>&gt; 60</text></inputEntry>
-        <inputEntry id="R5_client"><text></text></inputEntry>
-        <outputEntry id="R5_segment"><text>"CRITICAL"</text></outputEntry>
-        <outputEntry id="R5_explication"><text>"R5 — Retard de paiement supérieur à 60 jours"</text></outputEntry>
+        <inputEntry id="R5_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R5_debt"><text></text></inputEntry>
+        <inputEntry id="R5_reachable"><text></text></inputEntry>
+        <inputEntry id="R5_contract"><text></text></inputEntry>
+        <inputEntry id="R5_history"><text></text></inputEntry>
+        <inputEntry id="R5_stage"><text>"MULTIPLE_FOLLOW_UPS"</text></inputEntry>
+        <inputEntry id="R5_promise"><text></text></inputEntry>
+        <outputEntry id="R5_qualif"><text>"PRE_LEGAL"</text></outputEntry>
+        <outputEntry id="R5_reason"><text>"Multiple unsuccessful follow-ups; transfer to the pre-legal service."</text></outputEntry>
       </rule>
 
-      <!-- R6 : cas par défaut → standard -->
+      <!-- Cas 5 — promesse non respectée : escalade -->
       <rule id="R6">
-        <inputEntry id="R6_amount"><text></text></inputEntry>
-        <inputEntry id="R6_days"><text></text></inputEntry>
-        <inputEntry id="R6_client"><text></text></inputEntry>
-        <outputEntry id="R6_segment"><text>"STANDARD"</text></outputEntry>
-        <outputEntry id="R6_explication"><text>"R6 — Cas standard : traitement normal"</text></outputEntry>
+        <inputEntry id="R6_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R6_debt"><text></text></inputEntry>
+        <inputEntry id="R6_reachable"><text></text></inputEntry>
+        <inputEntry id="R6_contract"><text></text></inputEntry>
+        <inputEntry id="R6_history"><text></text></inputEntry>
+        <inputEntry id="R6_stage"><text></text></inputEntry>
+        <inputEntry id="R6_promise"><text>"PROMISE_BROKEN"</text></inputEntry>
+        <outputEntry id="R6_qualif"><text>"PROMISE_BROKEN"</text></outputEntry>
+        <outputEntry id="R6_reason"><text>"A payment promise was broken; escalate the file."</text></outputEntry>
+      </rule>
+
+      <!-- Cas 4 — déjà contacté : planifier une relance -->
+      <rule id="R7">
+        <inputEntry id="R7_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R7_debt"><text></text></inputEntry>
+        <inputEntry id="R7_reachable"><text></text></inputEntry>
+        <inputEntry id="R7_contract"><text></text></inputEntry>
+        <inputEntry id="R7_history"><text></text></inputEntry>
+        <inputEntry id="R7_stage"><text>"FOLLOW_UP"</text></inputEntry>
+        <inputEntry id="R7_promise"><text></text></inputEntry>
+        <outputEntry id="R7_qualif"><text>"FOLLOW_UP"</text></outputEntry>
+        <outputEntry id="R7_reason"><text>"A prior contact was made; schedule a follow-up."</text></outputEntry>
+      </rule>
+
+      <!-- Cas 3 — premier impayé (défaut) : premier contact -->
+      <rule id="R8">
+        <inputEntry id="R8_clientInfo"><text></text></inputEntry>
+        <inputEntry id="R8_debt"><text></text></inputEntry>
+        <inputEntry id="R8_reachable"><text></text></inputEntry>
+        <inputEntry id="R8_contract"><text></text></inputEntry>
+        <inputEntry id="R8_history"><text></text></inputEntry>
+        <inputEntry id="R8_stage"><text></text></inputEntry>
+        <inputEntry id="R8_promise"><text></text></inputEntry>
+        <outputEntry id="R8_qualif"><text>"FIRST_CONTACT"</text></outputEntry>
+        <outputEntry id="R8_reason"><text>"First contact; no prior collection action recorded."</text></outputEntry>
       </rule>
 
     </decisionTable>

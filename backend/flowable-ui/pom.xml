@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!--
+    Standalone project — intentionally NOT a module of the backend reactor (../pom.xml).
+    The Flowable UI apps only exist for Flowable 6.8.x, which is a Spring Boot 2.7 / Java 17
+    application; the monorepo is Flowable 7.2 / Spring Boot 3.5 / Java 21. Mixing them in one
+    reactor is impossible, so this project carries its own parent and is built on its own.
+  -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>2.7.18</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.mercure.recouvrement</groupId>
+  <artifactId>flowable-ui</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>flowable-ui</name>
+  <description>Flowable UI (Modeler / Task / Admin / IDM) — workflow designer for the existing workflow-service</description>
+
+  <properties>
+    <!-- The 6.8.x UI apps target Spring Boot 2.7 and run on Java 17 (NOT 21). -->
+    <java.version>17</java.version>
+    <flowable.version>6.8.1</flowable.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencies>
+    <!-- ============================================================== -->
+    <!-- The four Flowable UI applications, each shipped as a starter.   -->
+    <!-- Together they assemble the equivalent of flowable/all-in-one.   -->
+    <!-- ============================================================== -->
+
+    <!-- Modeler: design BPMN processes, DMN decision tables and Forms. -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-ui-modeler</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
+
+    <!-- Task: end-user task list + the embedded PROCESS ENGINE used to
+         deploy models to the engine tables and to view running processes. -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-ui-task</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
+
+    <!-- Admin: monitor deployments, process instances, jobs (via engine REST). -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-ui-admin</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
+
+    <!-- IDM: identity management (users, groups) + login/SSO for the UI apps. -->
+    <dependency>
+      <groupId>org.flowable</groupId>
+      <artifactId>flowable-spring-boot-starter-ui-idm</artifactId>
+      <version>${flowable.version}</version>
+    </dependency>
+
+    <!-- Operational endpoints (/actuator/health, info, metrics). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- Shared engine DB. Runtime scope: only the JDBC driver is needed at run. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>flowable-ui</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

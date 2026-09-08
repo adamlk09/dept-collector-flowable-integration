@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Flowable UI configuration. Everything externalizable is driven by env vars
+# so the same image runs locally and in Docker with no code change.
+# ---------------------------------------------------------------------------
+
+server:
+  # All four UI apps share this port under their own context paths.
+  port: ${SERVER_PORT:8090}
+
+spring:
+  datasource:
+    # SHARED engine database. Must be the SAME database workflow-service uses
+    # (per the repo convention that is `workflow_service`, owned by collector/collector).
+    # That is what makes a model deployed from the Modeler immediately runnable by
+    # workflow-service — both engines read/write the same ACT_RE_* / ACT_GE_BYTEARRAY tables.
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/workflow_service}
+    username: ${DB_USER:collector}
+    password: ${DB_PASSWORD:collector}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+flowable:
+  # Let this engine create/upgrade the shared schema if it is missing.
+  # See the README "Version-skew" section — this is the one risky knob when the
+  # other engine (workflow-service) runs a different Flowable major (7.2 vs 6.8).
+  database-schema-update: true
+
+  common:
+    app:
+      # Credentials the UI apps use to call the IDM REST internally.
+      # Must match the bootstrapped IDM admin below.
+      idm-admin:
+        user: ${IDM_ADMIN_USER:admin}
+        password: ${IDM_ADMIN_PASSWORD:admin}
+
+  idm:
+    app:
+      # Bootstrap a default admin user into the IDM (ACT_ID_* tables) on first start.
+      admin:
+        user-id: ${IDM_ADMIN_USER:admin}
+        password: ${IDM_ADMIN_PASSWORD:admin}
+        first-name: Flowable
+        last-name: Administrator
+        email: admin@flowable.local
+
+  admin:
+    app:
+      # The Admin app monitors a running engine over REST. Because the DB is shared,
+      # the local embedded engine already reflects everything workflow-service does,
+      # so pointing Admin at this app's own engine REST surfaces those processes too.
+      server-config:
+        process:
+          name: Flowable Process Engine
+          description: Shared workflow_service engine
+          server-address: ${ENGINE_REST_ADDRESS:http://localhost}
+          port: ${ENGINE_REST_PORT:8090}
+          context-root: flowable-task
+          rest-root: process-api
+          user-name: ${IDM_ADMIN_USER:admin}
+          password: ${IDM_ADMIN_PASSWORD:admin}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+logging:
+  level:
+    org.flowable: ${LOG_LEVEL_FLOWABLE:INFO}
+    org.springframework: WARN

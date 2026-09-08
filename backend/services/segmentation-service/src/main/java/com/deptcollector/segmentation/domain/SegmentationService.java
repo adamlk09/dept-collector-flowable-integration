@@ -3,7 +3,7 @@ package com.deptcollector.segmentation.domain;
 import com.deptcollector.segmentation.api.dto.DecisionRequest;
 import com.deptcollector.segmentation.api.dto.DecisionResponse;
 import com.deptcollector.shared.tenant.TenantContext;
-import org.flowable.dmn.api.DmnRuleService;
+import org.flowable.dmn.api.DmnDecisionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,12 +14,12 @@ import java.util.Map;
 public class SegmentationService {
 
     private static final Logger log = LoggerFactory.getLogger(SegmentationService.class);
-    private static final String DECISION_KEY = "debtSegmentation";
+    private static final String DECISION_KEY = "collectionQualification";
 
-    private final DmnRuleService dmnRuleService;
+    private final DmnDecisionService dmnDecisionService;
 
-    public SegmentationService(DmnRuleService dmnRuleService) {
-        this.dmnRuleService = dmnRuleService;
+    public SegmentationService(DmnDecisionService dmnDecisionService) {
+        this.dmnDecisionService = dmnDecisionService;
     }
 
     public DecisionResponse execute(DecisionRequest request) {
@@ -33,26 +33,35 @@ public class SegmentationService {
     private DecisionResponse evaluate(DecisionRequest request, boolean simulated) {
         String tenantId = TenantContext.getRequiredTenantId();
 
-        log.info("DMN evaluate debtId={} amount={} daysOverdue={} clientType={} tenantId={} simulated={}",
-                request.debtId(), request.amount(), request.daysOverdue(), request.clientType(), tenantId, simulated);
+        log.info("DMN evaluate debtId={} clientInfo={} contract={} debt={} history={} stage={} promise={} reachable={} tenantId={} simulated={}",
+                request.debtId(), request.clientInfoStatus(), request.contractStatus(), request.debtStatus(),
+                request.paymentHistory(), request.collectionStage(), request.promiseStatus(), request.reachable(),
+                tenantId, simulated);
 
-        Map<String, Object> result = dmnRuleService.createExecuteDecisionBuilder()
+        // The decision table auto-deploys to the default (tenantless) deployment, so resolution
+        // stays tenantless too — scoping it to tenantId would make Flowable look for a decision
+        // "for tenant X", which was never deployed, and throw FlowableObjectNotFoundException.
+        Map<String, Object> result = dmnDecisionService.createExecuteDecisionBuilder()
                 .decisionKey(DECISION_KEY)
-                .tenantId(tenantId)
-                .variable("amount", request.amount())
-                .variable("daysOverdue", request.daysOverdue())
-                .variable("clientType", request.clientType())
+                .variable("clientInfoStatus", request.clientInfoStatus())
+                .variable("contractStatus", request.contractStatus())
+                .variable("debtStatus", request.debtStatus())
+                .variable("paymentHistory", request.paymentHistory())
+                .variable("collectionStage", request.collectionStage())
+                .variable("promiseStatus", request.promiseStatus())
+                .variable("reachable", request.reachable() == null ? Boolean.TRUE : request.reachable())
                 .executeWithSingleResult();
 
         if (result == null || result.isEmpty()) {
-            log.warn("DMN returned no result for debtId={} — falling back to STANDARD", request.debtId());
-            return new DecisionResponse(request.debtId(), "STANDARD", "R6 — Cas standard : aucune règle déclenchée", simulated);
+            log.warn("DMN returned no result for debtId={} — falling back to FIRST_CONTACT", request.debtId());
+            return new DecisionResponse(request.debtId(), "FIRST_CONTACT",
+                    "First contact; no rule matched.", simulated);
         }
 
-        String segment = (String) result.get("segment");
-        String explication = (String) result.get("explication");
+        String qualification = (String) result.get("qualification");
+        String qualificationReason = (String) result.get("qualificationReason");
 
-        log.info("DMN result debtId={} segment={} explication={}", request.debtId(), segment, explication);
-        return new DecisionResponse(request.debtId(), segment, explication, simulated);
+        log.info("DMN result debtId={} qualification={} reason={}", request.debtId(), qualification, qualificationReason);
+        return new DecisionResponse(request.debtId(), qualification, qualificationReason, simulated);
     }
 }

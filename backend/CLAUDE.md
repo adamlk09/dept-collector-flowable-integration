@@ -36,7 +36,7 @@ api-gateway/             ← Spring Cloud Gateway on port 8080
 services/<name>/         ← 25 autonomous microservices, ports 8081+
 ```
 
-**Port assignment:** services follow declaration order in the root `pom.xml`, starting at 8081. The gateway is 8080. `workflow-service` is 8094, `segmentation-service` is 8093 (check each `application.yml` for `SERVER_PORT`).
+**Port assignment:** services follow declaration order in the root `pom.xml`, starting at 8081. The gateway is 8080. `segmentation-service` is 8092, `assignment-service` is 8093, `workflow-service` is 8094 (check each `application.yml` for `SERVER_PORT`).
 
 ### shared-kernel
 
@@ -60,6 +60,8 @@ Flowable is intentionally split across two services only — never add Flowable 
 BPMN process files go under `services/workflow-service/src/main/resources/processes/`.  
 DMN decision tables go under `services/segmentation-service/src/main/resources/dmn/`.  
 Flowable auto-deploys resources found in these directories on startup.
+
+The two engines are chained over REST: `workflow-service`'s `segmentDebt` step calls segmentation-service's DMN at `POST /api/v1/segmentation/execute` (via `SegmentationClient`, base URL `app.segmentation-service.url`, default `http://localhost:8092`), propagating `X-Tenant-Id`/`X-Correlation-Id`. The call has a local fallback so the BPMN keeps running if the DMN service is down.
 
 ### Per-service conventions
 

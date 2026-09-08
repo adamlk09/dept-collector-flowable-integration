@@ -24,3 +24,6 @@ CREATE DATABASE configuration_service;
 CREATE DATABASE reference_data_service;
 CREATE DATABASE data_contract_service;
 CREATE DATABASE api_gateway;
+-- Flowable UI 6.8 (compose service flowable-ui) — its own engine/IDM/modeler tables,
+-- deliberately separate from workflow_service (7.2 schema, incompatible with 6.8).
+CREATE DATABASE flowable_ui;

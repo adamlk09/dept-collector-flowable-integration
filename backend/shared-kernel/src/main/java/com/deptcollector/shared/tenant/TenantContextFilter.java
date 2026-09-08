@@ -44,6 +44,13 @@ public class TenantContextFilter extends OncePerRequestFilter {
     private boolean isTenantExempt(String uri) {
         return uri.startsWith("/actuator")
                 || uri.startsWith("/swagger-ui")
-                || uri.startsWith("/v3/api-docs");
+                || uri.startsWith("/v3/api-docs")
+                // Flowable's own REST API (workflow-service's BPMN/CMMN engines, segmentation-
+                // service's DMN engine). Consumed by the Flowable Admin UI, which cannot send
+                // custom headers; Flowable queries carry their own tenant dimension instead of
+                // TenantContext.
+                || uri.startsWith("/process-api")
+                || uri.startsWith("/cmmn-api")
+                || uri.startsWith("/dmn-api");
     }
 }

@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Standalone stack for running the Flowable UI on its own (designer + a fresh
+# shared DB). workflow-service is intentionally NOT here — it already exists.
+#
+# Integrated setup: if you already run the backend's compose.yaml (which owns
+# the `workflow_service` database), do NOT start this postgres. Instead run only
+# the flowable-ui service and point DB_URL at the existing Postgres, e.g.:
+#   DB_URL=jdbc:postgresql://host.docker.internal:5432/workflow_service
+# ---------------------------------------------------------------------------
+name: flowable-ui
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: collector
+      POSTGRES_PASSWORD: collector
+      POSTGRES_DB: collector
+    ports:
+      - "5432:5432"
+    volumes:
+      - flowable-ui-postgres-data:/var/lib/postgresql/data
+      # Creates the shared `workflow_service` database on first init.
+      - ./src/main/docker/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collector -d workflow_service"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  flowable-ui:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8090
+      DB_URL: jdbc:postgresql://postgres:5432/workflow_service
+      DB_USER: collector
+      DB_PASSWORD: collector
+      IDM_ADMIN_USER: admin
+      IDM_ADMIN_PASSWORD: admin
+    ports:
+      - "8090:8090"
+
+volumes:
+  flowable-ui-postgres-data:

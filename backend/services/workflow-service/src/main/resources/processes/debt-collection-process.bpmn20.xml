@@ -10,49 +10,140 @@
 
     <!-- Start -->
     <startEvent id="start" name="Debt Received" />
-
     <sequenceFlow id="flowToValidate" sourceRef="start" targetRef="validateDebt" />
 
     <!-- Step 1: validate the incoming debt request -->
     <serviceTask id="validateDebt"
                  name="Validate Debt"
                  flowable:delegateExpression="${validateDebtDelegate}" />
-
     <sequenceFlow id="flowToSegment" sourceRef="validateDebt" targetRef="segmentDebt" />
 
-    <!-- Step 2: classify the debt (sets segment = HIGH_RISK / LOW_RISK) -->
+    <!-- Step 2: qualify the debt (sets qualification + qualificationReason + segment) -->
     <serviceTask id="segmentDebt"
                  name="Segment Debt"
                  flowable:delegateExpression="${segmentDebtDelegate}" />
+    <sequenceFlow id="flowToReview" sourceRef="segmentDebt" targetRef="reviewQualification" />
 
-    <sequenceFlow id="flowToGateway" sourceRef="segmentDebt" targetRef="riskGateway" />
+    <!-- Step 3: a collection agent reviews the automatic qualification before the system
+         dispatches it. qualification/qualificationReason/segment are already process variables
+         (set by segmentDebt) so a UI can render them on the task without extra wiring; completing
+         the task with a "qualification" variable in its payload overrides the routing decision
+         the gateway below reads, completing it with none passes the automatic qualification
+         through unchanged. This is the process's one wait state / human task. -->
+    <userTask id="reviewQualification" name="Review Debt Qualification"
+              flowable:candidateGroups="collectionAgents" />
+    <sequenceFlow id="flowToGateway" sourceRef="reviewQualification" targetRef="qualificationGateway" />
 
-    <!-- Step 3: decide the path based on the numeric score -->
-    <exclusiveGateway id="riskGateway" name="Is high risk?" />
+    <!-- Step 4: EPIC 8 routing — one dedicated process per qualification -->
+    <exclusiveGateway id="qualificationGateway" name="Route by qualification" default="flowDefault" />
 
-    <!-- High-risk path: score >= 70 -->
-    <sequenceFlow id="flowHighRisk" sourceRef="riskGateway" targetRef="selectPriorityStrategy">
-      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${score >= 70}]]></conditionExpression>
+    <sequenceFlow id="flowLegal" sourceRef="qualificationGateway" targetRef="callLegal">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'LEGAL'}]]></conditionExpression>
     </sequenceFlow>
-
-    <!-- Standard path: score < 70 -->
-    <sequenceFlow id="flowStandardRisk" sourceRef="riskGateway" targetRef="selectStandardStrategy">
-      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${score < 70}]]></conditionExpression>
+    <sequenceFlow id="flowPreLegal" sourceRef="qualificationGateway" targetRef="callPreLegal">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'PRE_LEGAL'}]]></conditionExpression>
     </sequenceFlow>
+    <sequenceFlow id="flowEscalation" sourceRef="qualificationGateway" targetRef="callEscalation">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'PROMISE_BROKEN'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flowPhone" sourceRef="qualificationGateway" targetRef="callPhone">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'FOLLOW_UP'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flowUpdateInfo" sourceRef="qualificationGateway" targetRef="callUpdateInfo">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'CLIENT_INFORMATION_INCOMPLETE'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flowClose" sourceRef="qualificationGateway" targetRef="closeFile">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'DEBT_CLOSED'}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flowInfoResearch" sourceRef="qualificationGateway" targetRef="infoResearch">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${qualification == 'INFO_RESEARCH'}]]></conditionExpression>
+    </sequenceFlow>
+    <!-- Default (FIRST_CONTACT and any unmatched value) -> Reminder Process -->
+    <sequenceFlow id="flowDefault" sourceRef="qualificationGateway" targetRef="callReminder" />
 
-    <!-- Step 4a: priority strategy (sets strategy = PRIORITY_COLLECTION, status = COMPLETED) -->
-    <serviceTask id="selectPriorityStrategy"
-                 name="Select Priority Strategy"
-                 flowable:delegateExpression="${selectPriorityStrategyDelegate}" />
+    <!-- EPIC 8 — dedicated sub-processes via call activity.
+         inheritVariables passes the parent context in; the out-mappings bring the
+         chosen strategy/status/workflow back so the parent history reflects them. -->
+    <callActivity id="callLegal" name="Legal Collection" calledElement="legalCollectionProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowLegalEnd" sourceRef="callLegal" targetRef="end" />
 
-    <sequenceFlow id="flowPriorityToEnd" sourceRef="selectPriorityStrategy" targetRef="end" />
+    <callActivity id="callPreLegal" name="Pre Legal Collection" calledElement="preLegalCollectionProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowPreLegalEnd" sourceRef="callPreLegal" targetRef="end" />
 
-    <!-- Step 4b: standard strategy (sets strategy = STANDARD_COLLECTION, status = COMPLETED) -->
-    <serviceTask id="selectStandardStrategy"
-                 name="Select Standard Strategy"
-                 flowable:delegateExpression="${selectStandardStrategyDelegate}" />
+    <callActivity id="callEscalation" name="Escalation" calledElement="escalationProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowEscalationEnd" sourceRef="callEscalation" targetRef="end" />
 
-    <sequenceFlow id="flowStandardToEnd" sourceRef="selectStandardStrategy" targetRef="end" />
+    <callActivity id="callPhone" name="Phone Collection" calledElement="phoneCollectionProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowPhoneEnd" sourceRef="callPhone" targetRef="end" />
+
+    <callActivity id="callReminder" name="Reminder" calledElement="reminderProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowReminderEnd" sourceRef="callReminder" targetRef="end" />
+
+    <callActivity id="callUpdateInfo" name="Update Customer Information" calledElement="updateCustomerInformationProcess"
+                  flowable:inheritVariables="true">
+      <extensionElements>
+        <flowable:out source="strategy" target="strategy" />
+        <flowable:out source="status" target="status" />
+        <flowable:out source="workflow" target="workflow" />
+      </extensionElements>
+    </callActivity>
+    <sequenceFlow id="flowUpdateInfoEnd" sourceRef="callUpdateInfo" targetRef="end" />
+
+    <!-- Non-workflow outcomes handled inline (no dedicated sub-process) -->
+    <serviceTask id="closeFile" name="Close File"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>NONE</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>CLOSED</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Close File</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flowCloseEnd" sourceRef="closeFile" targetRef="end" />
+
+    <serviceTask id="infoResearch" name="Information Research Mission"
+                 flowable:class="com.mercure.recouvrement.workflow.delegate.ApplyStrategyDelegate">
+      <extensionElements>
+        <flowable:field name="strategy"><flowable:string>INFORMATION_RESEARCH</flowable:string></flowable:field>
+        <flowable:field name="status"><flowable:string>PENDING_INFO</flowable:string></flowable:field>
+        <flowable:field name="workflow"><flowable:string>Information Research</flowable:string></flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flowInfoResearchEnd" sourceRef="infoResearch" targetRef="end" />
 
     <!-- End -->
     <endEvent id="end" name="Completed" />

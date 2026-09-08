@@ -11,6 +11,11 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
   security:
     oauth2:
       resourceserver:
@@ -41,6 +46,12 @@ app:
   capabilities: BPMN processes,tasks,timers,incidents
   security:
     enabled: ${SECURITY_ENABLED:false}
+  segmentation-service:
+    url: ${SEGMENTATION_SERVICE_URL:http://localhost:8092}
+  case-service:
+    url: ${CASE_SERVICE_URL:http://localhost:8091}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8095}
 
 logging:
   pattern:

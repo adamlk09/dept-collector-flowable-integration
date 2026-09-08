@@ -3,6 +3,7 @@ package com.deptcollector.shared.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
+import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,6 +25,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     ProblemDetail conflict(IllegalStateException exception, HttpServletRequest request) {
         return problem(HttpStatus.CONFLICT, "Invalid state", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(NoSuchElementException.class)
+    ProblemDetail notFound(NoSuchElementException exception, HttpServletRequest request) {
+        return problem(HttpStatus.NOT_FOUND, "Not found", exception.getMessage(), request);
     }
 
     private ProblemDetail problem(

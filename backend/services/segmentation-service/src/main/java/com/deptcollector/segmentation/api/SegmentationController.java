@@ -19,7 +19,7 @@ public class SegmentationController {
         this.segmentationService = segmentationService;
     }
 
-    // F3 + F4 — execute DMN and return segment + rule explication
+    // F3 + F4 — execute DMN and return qualification + rule explanation
     @PostMapping("/execute")
     public DecisionResponse execute(@Valid @RequestBody DecisionRequest request) {
         return segmentationService.execute(request);

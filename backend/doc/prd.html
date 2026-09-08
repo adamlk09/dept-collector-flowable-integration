@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD — Debt Collection Workflow (Flowable BPMN + DMN)</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --ink: #1f2430;
+    --muted: #5b6472;
+    --accent: #1f6feb;
+    --accent-soft: #e7f0ff;
+    --ok: #1a7f37;
+    --ok-soft: #e6f4ea;
+    --warn: #9a6700;
+    --warn-soft: #fff8e1;
+    --danger: #c0392b;
+    --danger-soft: #fdecea;
+    --code-bg: #f0f2f5;
+    --border: #e3e6ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.65;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #10233f 0%, #1f6feb 100%);
+    color: #fff; padding: 48px 24px 40px;
+  }
+  header.hero .inner { max-width: 1000px; margin: 0 auto; }
+  header.hero h1 { margin: 0 0 8px; font-size: 2rem; }
+  header.hero p { margin: 0; opacity: .85; max-width: 760px; }
+  .badges { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.35);
+    padding: 3px 12px; border-radius: 999px; font-size: .8rem;
+  }
+  nav.toc {
+    max-width: 1000px; margin: -22px auto 0; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .9rem;
+    box-shadow: 0 4px 14px rgba(16,35,63,.08);
+  }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  main { max-width: 1000px; margin: 32px auto 64px; padding: 0 24px; }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 32px; margin-bottom: 28px;
+  }
+  h2 { margin-top: 0; font-size: 1.4rem; border-bottom: 2px solid var(--accent-soft); padding-bottom: 10px; }
+  h3 { font-size: 1.05rem; margin: 26px 0 8px; }
+  h4 { font-size: .98rem; margin: 18px 0 6px; }
+  p.lead { color: var(--muted); }
+  code, pre { font-family: "Cascadia Code", Consolas, monospace; font-size: .875em; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; }
+  pre {
+    background: #10233f; color: #dbe6f5; padding: 16px 18px; border-radius: 8px;
+    overflow-x: auto; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .92rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); }
+  .callout { border-left: 4px solid; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+  .callout.ok     { border-color: var(--ok);     background: var(--ok-soft); }
+  .callout.warn   { border-color: var(--warn);   background: var(--warn-soft); }
+  .callout.danger { border-color: var(--danger); background: var(--danger-soft); }
+  .callout.info   { border-color: var(--accent); background: var(--accent-soft); }
+  .callout strong:first-child { display: block; margin-bottom: 4px; }
+  .diagram-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; margin: 16px 0; overflow-x: auto;
+  }
+  .diagram-card figcaption {
+    font-size: .85rem; color: var(--muted); font-weight: 600; margin-bottom: 10px;
+  }
+  .mermaid { text-align: center; }
+  .mermaid svg { max-width: 100%; height: auto; }
+  .pill { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .pill.v7 { background: var(--ok-soft); color: var(--ok); }
+  .pill.v6 { background: var(--warn-soft); color: var(--warn); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card-mini { border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; }
+  .card-mini h4 { margin: 0 0 6px; }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 24px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <h1>PRD — Debt Collection Workflow</h1>
+    <p>Product requirements for the qualification engine and BPMN orchestration of <code>workflow-service</code>:
+       how an incoming debt file is qualified (DMN) and routed to a dedicated collection process (BPMN).</p>
+    <div class="badges">
+      <span class="badge">workflow-service · 8094</span>
+      <span class="badge">Flowable BPMN 7.2.0</span>
+      <span class="badge">Flowable DMN (segmentation-service · 8092)</span>
+      <span class="badge">Spring Boot 3.5.12</span>
+      <span class="badge">Java 21</span>
+      <span class="badge">PostgreSQL 17</span>
+      <span class="badge">Multi-tenant</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#summary">1. Executive Summary</a>
+  <a href="#context">2. Problem &amp; Context</a>
+  <a href="#actors">3. Actors</a>
+  <a href="#scenario">4. Business Scenario</a>
+  <a href="#epics">5. Qualification Engine (EPIC 1–7)</a>
+  <a href="#rules">6. Business Rules (DMN)</a>
+  <a href="#bpmn">7. BPMN Routing (EPIC 8)</a>
+  <a href="#architecture">8. Architecture</a>
+  <a href="#api">9. API Contracts</a>
+  <a href="#nfr">10. Non-Functional Requirements</a>
+  <a href="#dod">11. Acceptance Criteria</a>
+  <a href="#outofscope">12. Out of Scope</a>
+</nav>
+
+<main>
+
+<section id="summary">
+  <h2>1. Executive Summary</h2>
+  <p class="lead">When a debt file enters the platform, it must be qualified and routed to the right collection
+  workflow automatically — without any human pre-screening and without any numeric credit score.</p>
+  <p>This PRD describes the debt-collection vertical implemented by <code>workflow-service</code> (BPMN engine)
+  and <code>segmentation-service</code> (DMN engine):</p>
+  <ul>
+    <li><strong>Qualify</strong> — an incoming debt file is analysed across six categorical dimensions
+        (EPIC 1–6) plus reachability, and classified into <strong>one of eight qualifications</strong> (EPIC 7).</li>
+    <li><strong>Route</strong> — each qualification starts its dedicated BPMN collection process (EPIC 8):
+        reminder, phone collection, escalation, pre-legal, legal, update-customer-info, close-file or info-research.</li>
+    <li><strong>Track</strong> — every decision is persisted as process history; the outcome
+        (qualification, segment, strategy, status) is returned to the caller.</li>
+  </ul>
+  <div class="callout info"><strong>Key design decision</strong>
+    There is <strong>no numeric scoring</strong>. Qualification is categorical, driven by business rules that
+    live in a Flowable DMN decision table — so rules can change without redeploying code.</div>
+  <div class="callout warn"><strong>Sources</strong>
+    This document was reverse-engineered from the repository working tree
+    (<code>backend/services/workflow-service</code>, <code>backend/services/segmentation-service</code>,
+    branch <code>ft-setup-flowable</code>). Every statement maps to code, BPMN, DMN or configuration.</div>
+</section>
+
+<section id="context">
+  <h2>2. Problem &amp; Business Context</h2>
+  <p>Creditors (banks, lenders) need to recover unpaid debts while spending as little human effort as possible on
+  routine cases. The collection department handles thousands of files; each must be triaged by severity and
+  handled with the appropriate intensity:</p>
+  <ul>
+    <li>A first missed instalment needs a <em>friendly reminder</em> (SMS/email).</li>
+    <li>A second contact needs a <em>phone call task</em>.</li>
+    <li>A broken payment promise needs <em>reinforced follow-up</em>.</li>
+    <li>Serious cases escalate to the <em>pre-legal</em> or <em>legal</em> department.</li>
+    <li>Blocked files (missing client info, unreachable client, already-paid debt) need dedicated handling.</li>
+  </ul>
+  <p><strong>The problem:</strong> manual triage does not scale, and ad-hoc Java code makes the routing rules
+  invisible and hard to change. <strong>The solution:</strong> an executable decision model (DMN) that qualifies
+  every file, wired to an executable process model (BPMN) that applies the right collection strategy —
+  both versioned, auditable, and tenant-isolated.</p>
+</section>
+
+<section id="actors">
+  <h2>3. Actors</h2>
+  <table>
+    <tr><th>Actor</th><th>Role</th><th>Interactions</th></tr>
+    <tr><td>Intake system (debt source)</td><td>Creates debt files (debtId + customerId) and may pass known categorical facts</td><td><code>POST /api/v1/workflows/collection/start</code> · <code>POST /api/v1/workflows/processes</code></td></tr>
+    <tr><td>Collection agent</td><td>Handles phone calls, updates client information, closes files</td><td>Task endpoints (planned user tasks), process history</td></tr>
+    <tr><td>Business administrator</td><td>Owns the collection rules; changes them over time</td><td>DMN decision table (<code>debt-segmentation.dmn</code>) deployed by segmentation-service</td></tr>
+    <tr><td>Supervisor / Ops</td><td>Monitors incidents, dead-letter jobs, timers</td><td>Incidents / jobs / timers endpoints · Flowable Admin UI via <code>/process-api/**</code></td></tr>
+    <tr><td>Frontend (POC)</td><td>Vue 3 UI showing cases, decisions, tasks</td><td>Gateway (<code>8080</code>) → services; today mocked in <code>frontend/src/services/api.ts</code></td></tr>
+  </table>
+</section><section id="scenario">
+  <h2>4. Business Scenario — “The unpaid loan”</h2>
+  <p class="lead">A borrower stops paying their instalments. The platform qualifies the file and routes it
+  through the collection workflow — step by step, with the exact process names found in the repository.</p>
+
+  <h3>4.1 Story</h3>
+  <p>Karim has an active consumer loan (<code>contractStatus = ACTIVE_CONTRACT</code>). He misses his first
+  instalment: the bank creates debt file <code>DEBT-2026-00042</code>. At intake the system only knows
+  <code>debtId</code> and <code>customerId</code>; every behavioural dimension is left unset. The service applies
+  safe categorical defaults (<code>buildVariables</code> in <code>CollectionWorkflowService</code>):
+  <code>CLIENT_INFORMATION_COMPLETE</code>, <code>ACTIVE_CONTRACT</code>, <code>OPEN_DEBT</code>,
+  <code>GOOD_PAYMENT_HISTORY</code>, <code>FIRST_CONTACT</code>, <code>NONE</code>, <code>reachable = true</code>.</p>
+
+  <h3>4.2 Timeline and BPMN path</h3>
+  <table>
+    <tr><th>Step</th><th>What happens</th><th>Engine trace</th><th>Result</th></tr>
+    <tr><td>T0 — File creation</td><td>Bank records the unpaid instalment</td><td>—</td><td><code>DEBT-2026-00042</code></td></tr>
+    <tr><td>T0 — Intake</td><td><code>POST /api/v1/workflows/collection/start</code> (tenant <code>X-Tenant-Id</code>, <code>debtId</code>, <code>customerId</code>)</td><td><code>startProcessInstanceByKey("debtCollectionProcess")</code></td><td>Process instance starts, runs synchronously</td></tr>
+    <tr><td>T0 — Validate</td><td>Mandatory fields checked, <code>debtValid=true</code></td><td><code>validateDebtDelegate</code> (bean <code>${validateDebtDelegate}</code>)</td><td><code>validatedAt</code> set</td></tr>
+    <tr><td>T0 — Qualify</td><td>Facts resolved (providers echo defaults) → DMN executed at <code>POST /api/v1/segmentation/execute</code></td><td><code>segmentDebtDelegate</code> → rule <strong>R8 (first contact)</strong></td><td><code>qualification=FIRST_CONTACT</code>, <code>qualificationSource=DMN</code>, <code>segment=LOW_RISK</code></td></tr>
+    <tr><td>T0 — Route</td><td>Exclusive gateway <code>qualificationGateway</code>, default flow taken</td><td>callActivity <code>callReminder</code> → <code>reminderProcess</code></td><td>SMS/email reminder</td></tr>
+    <tr><td>T0 — Apply strategy</td><td>Field-injected literals written to the instance</td><td><code>ApplyStrategyDelegate</code> (<code>flowable:class</code>)</td><td><code>strategy=FRIENDLY_REMINDER</code>, <code>status=COMPLETED</code>, <code>workflow=Reminder Process</code></td></tr>
+    <tr><td>T0 — End</td><td>Sub-process output mapped back to parent (<code>flowable:out</code>)</td><td>End event of <code>debtCollectionProcess</code></td><td>History complete</td></tr>
+    <tr><td>T0 — Response</td><td>Outcome read back from history</td><td><code>HistoryService</code> query in <code>CollectionWorkflowService</code></td><td><code>201</code> with qualification / segment / strategy / status</td></tr>
+  </table>
+
+  <h3>4.3 Escalation over time</h3>
+  <p>Karim ignores the reminder. Weeks pass and the file evolves — the collection stage and promise status
+  change, and each new intake call re-runs the qualification engine:</p>
+  <table>
+    <tr><th>Event</th><th>Facts</th><th>DMN rule</th><th>Qualification</th><th>Process started</th><th>Strategy</th></tr>
+    <tr><td>Second contact needed</td><td><code>collectionStage=FOLLOW_UP</code></td><td>R7</td><td><code>FOLLOW_UP</code></td><td><code>phoneCollectionProcess</code></td><td><code>STANDARD_CONTACT</code></td></tr>
+    <tr><td>Promise broken</td><td><code>promiseStatus=PROMISE_BROKEN</code></td><td>R6</td><td><code>PROMISE_BROKEN</code></td><td><code>escalationProcess</code></td><td><code>INTENSIVE_CONTACT</code></td></tr>
+    <tr><td>Serious overdue</td><td><code>collectionStage=MULTIPLE_FOLLOW_UPS</code></td><td>R5</td><td><code>PRE_LEGAL</code></td><td><code>preLegalCollectionProcess</code></td><td><code>PRE_LEGAL_REVIEW</code></td></tr>
+    <tr><td>Legal conditions met</td><td><code>TERMINATED_CONTRACT</code> + <code>NO_PAYMENT</code> + <code>MULTIPLE_FOLLOW_UPS</code></td><td>R4</td><td><code>LEGAL</code></td><td><code>legalCollectionProcess</code></td><td><code>LEGAL_ACTION</code></td></tr>
+  </table>
+
+  <h3>4.4 Alternative endings</h3>
+  <ul>
+    <li>Karim pays the arrears → <code>debtStatus=PAID_DEBT</code> → rule R2 → <code>DEBT_CLOSED</code> → inline <code>closeFile</code> task → <code>strategy=NONE</code>, <code>status=CLOSED</code>.</li>
+    <li>Karim’s phone and address are wrong → <code>reachable=false</code> → rule R3 → <code>INFO_RESEARCH</code> → inline <code>infoResearch</code> task → <code>strategy=INFORMATION_RESEARCH</code>, <code>status=PENDING_INFO</code>.</li>
+    <li>Karim’s client file is incomplete → rule R1 → <code>CLIENT_INFORMATION_INCOMPLETE</code> → <code>updateCustomerInformationProcess</code> → <code>strategy=UPDATE_CUSTOMER_INFO</code>, <code>status=PENDING_INFO</code>.</li>
+  </ul>
+</section>
+
+<section id="epics">
+  <h2>5. Qualification Engine — EPIC 1–7</h2>
+  <p class="lead">The engine qualifies a file from six categorical dimensions plus reachability. No dimension is
+  numeric; each describes the file in business terms (<code>StartCollectionProcessRequest</code>).</p>
+
+  <div class="grid2">
+    <div class="card-mini"><h4>EPIC 1 — Client information</h4>
+      <code>CLIENT_INFORMATION_COMPLETE</code> · <code>CLIENT_INFORMATION_INCOMPLETE</code></div>
+    <div class="card-mini"><h4>EPIC 2 — Contract status</h4>
+      <code>ACTIVE_CONTRACT</code> · <code>SUSPENDED_CONTRACT</code> · <code>TERMINATED_CONTRACT</code></div>
+    <div class="card-mini"><h4>EPIC 3 — Debt status</h4>
+      <code>OPEN_DEBT</code> · <code>PAID_DEBT</code> · <code>PARTIAL_PAYMENT</code></div>
+    <div class="card-mini"><h4>EPIC 4 — Payment history</h4>
+      <code>GOOD_PAYMENT_HISTORY</code> · <code>IRREGULAR_PAYMENT_HISTORY</code> · <code>NO_PAYMENT</code></div>
+    <div class="card-mini"><h4>EPIC 5 — Collection stage</h4>
+      <code>FIRST_CONTACT</code> · <code>FOLLOW_UP</code> · <code>MULTIPLE_FOLLOW_UPS</code></div>
+    <div class="card-mini"><h4>EPIC 6 — Payment promise</h4>
+      <code>NONE</code> · <code>PROMISE_ACTIVE</code> · <code>PROMISE_KEPT</code> · <code>PROMISE_BROKEN</code></div>
+  </div>
+  <p>Plus the boolean <code>reachable</code> — whether the client can currently be reached (EPIC 7, case 6).</p>
+
+  <h3>5.1 Optional inputs with safe defaults</h3>
+  <p>All six dimensions are optional in the request. The service fills each missing dimension with a safe
+  categorical default (<code>buildVariables</code>), so callers that only know the debt and customer still get a
+  correct, conservative qualification.</p>
+
+  <h3>5.2 Facts-resolution seam (M4)</h3>
+  <p><code>SegmentDebtDelegate</code> does not read the dimensions straight from the request: it asks
+  <code>CollectionFactsResolver</code>, which aggregates one provider per EPIC (<code>ClientInfoProvider</code>,
+  <code>ContractStatusProvider</code>, <code>DebtStatusProvider</code>, <code>PaymentHistoryProvider</code>,
+  <code>CollectionStageProvider</code>, <code>PromiseStatusProvider</code>). Today every provider is a stub that
+  echoes the provided value; tomorrow each can call its business service without touching the BPMN.</p>
+
+  <h3>5.3 DMN with local fallback</h3>
+  <p>The delegate calls segmentation-service (<code>POST /api/v1/segmentation/execute</code>). If the DMN call
+  fails for <em>any</em> reason (service down, timeout, empty answer), the delegate falls back to
+  <code>qualifyLocally</code> — the same rules mirrored in Java — so the process never stops because the decision
+  engine is unavailable. <code>qualificationSource</code> (<code>DMN</code>/<code>LOCAL</code>) records which path
+  produced the qualification. <strong>This never-throw-on-DMN-failure contract must be preserved.</strong></p>
+
+  <h3>5.4 Derived segment</h3>
+  <p><code>segment</code> is derived in Java, not in the DMN: <code>HIGH_RISK = {LEGAL, PRE_LEGAL, PROMISE_BROKEN}</code>,
+  everything else is <code>LOW_RISK</code>. The BPMN gateway routes on <code>qualification</code>, not on segment.</p>
+</section><section id="rules">
+  <h2>6. Business Rules — the DMN</h2>
+  <p class="lead">The qualification rules live in <code>debt-segmentation.dmn</code> (decision
+  <code>collectionQualification</code>, <code>hitPolicy=FIRST</code>): rules are evaluated top to bottom and the
+  first match wins — the most blocking / escalating case first. The local fallback in
+  <code>SegmentDebtDelegate.qualifyLocally</code> mirrors the same priority order.</p>
+
+  <table>
+    <tr><th>#</th><th>Conditions (all must match)</th><th>Qualification</th><th>Business meaning</th></tr>
+    <tr><td>R1</td><td><code>clientInfoStatus = CLIENT_INFORMATION_INCOMPLETE</code></td><td><code>CLIENT_INFORMATION_INCOMPLETE</code></td><td>Incomplete client info blocks everything else → ask the agent to complete it</td></tr>
+    <tr><td>R2</td><td><code>debtStatus = PAID_DEBT</code></td><td><code>DEBT_CLOSED</code></td><td>Debt already settled → close the file</td></tr>
+    <tr><td>R3</td><td><code>reachable = false</code></td><td><code>INFO_RESEARCH</code></td><td>Client unreachable → information-research mission</td></tr>
+    <tr><td>R4</td><td><code>contractStatus = TERMINATED_CONTRACT</code> AND <code>paymentHistory = NO_PAYMENT</code> AND <code>collectionStage = MULTIPLE_FOLLOW_UPS</code></td><td><code>LEGAL</code></td><td>Legal conditions met → launch legal workflow</td></tr>
+    <tr><td>R5</td><td><code>collectionStage = MULTIPLE_FOLLOW_UPS</code></td><td><code>PRE_LEGAL</code></td><td>Several unsuccessful follow-ups → transfer to pre-legal service</td></tr>
+    <tr><td>R6</td><td><code>promiseStatus = PROMISE_BROKEN</code></td><td><code>PROMISE_BROKEN</code></td><td>Broken payment promise → reinforced follow-up</td></tr>
+    <tr><td>R7</td><td><code>collectionStage = FOLLOW_UP</code></td><td><code>FOLLOW_UP</code></td><td>Already contacted once → phone-call task</td></tr>
+    <tr><td>R8</td><td>default (no earlier rule matched)</td><td><code>FIRST_CONTACT</code></td><td>First unpaid instalment → friendly reminder</td></tr>
+  </table>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 1 — Qualification decision tree (EPIC 7, priority order)</figcaption>
+    <div class="mermaid">
+flowchart TD
+    F["Facts<br/>EPIC 1–6 + reachable"] --> R1{"R1<br/>clientInfo incomplete?"}
+    R1 -- yes --> Q1["CLIENT_INFORMATION_INCOMPLETE"]
+    R1 -- no --> R2{"R2<br/>debt paid?"}
+    R2 -- yes --> Q2["DEBT_CLOSED"]
+    R2 -- no --> R3{"R3<br/>unreachable?"}
+    R3 -- yes --> Q3["INFO_RESEARCH"]
+    R3 -- no --> R4{"R4<br/>TERMINATED_CONTRACT AND NO_PAYMENT AND MULTIPLE_FOLLOW_UPS?"}
+    R4 -- yes --> Q4["LEGAL"]
+    R4 -- no --> R5{"R5<br/>MULTIPLE_FOLLOW_UPS?"}
+    R5 -- yes --> Q5["PRE_LEGAL"]
+    R5 -- no --> R6{"R6<br/>PROMISE_BROKEN?"}
+    R6 -- yes --> Q6["PROMISE_BROKEN"]
+    R6 -- no --> R7{"R7<br/>FOLLOW_UP stage?"}
+    R7 -- yes --> Q7["FOLLOW_UP"]
+    R7 -- no --> Q8["FIRST_CONTACT"]
+    </div>
+  </figure>
+
+  <div class="callout info"><strong>Why a decision table?</strong>
+    The rules are the part of the system the business changes most often (thresholds, priorities, new cases).
+    In a DMN table they are versioned data, reviewable by non-developers, and deployable independently — no Java
+    recompilation. The Java fallback exists only for resilience, not as the source of truth.</div>
+</section>
+
+<section id="bpmn">
+  <h2>7. BPMN Routing — EPIC 8</h2>
+  <p class="lead">Once qualified, the file is routed by the exclusive gateway <code>qualificationGateway</code>.
+  Six qualifications start a dedicated sub-process (call activity); two are handled inline.</p>
+
+  <table>
+    <tr><th>Qualification</th><th>Flow</th><th>Sub-process / task</th><th>Strategy</th><th>Status</th></tr>
+    <tr><td><code>FIRST_CONTACT</code></td><td>default flow</td><td><code>reminderProcess</code> (Send reminder SMS/email)</td><td><code>FRIENDLY_REMINDER</code></td><td><code>COMPLETED</code></td></tr>
+    <tr><td><code>FOLLOW_UP</code></td><td>condition</td><td><code>phoneCollectionProcess</code> (Create phone-call task)</td><td><code>STANDARD_CONTACT</code></td><td><code>COMPLETED</code></td></tr>
+    <tr><td><code>PROMISE_BROKEN</code></td><td>condition</td><td><code>escalationProcess</code> (Reinforced follow-up)</td><td><code>INTENSIVE_CONTACT</code></td><td><code>COMPLETED</code></td></tr>
+    <tr><td><code>PRE_LEGAL</code></td><td>condition</td><td><code>preLegalCollectionProcess</code> (Transfer to pre-legal)</td><td><code>PRE_LEGAL_REVIEW</code></td><td><code>COMPLETED</code></td></tr>
+    <tr><td><code>LEGAL</code></td><td>condition</td><td><code>legalCollectionProcess</code> (Launch legal action)</td><td><code>LEGAL_ACTION</code></td><td><code>COMPLETED</code></td></tr>
+    <tr><td><code>CLIENT_INFORMATION_INCOMPLETE</code></td><td>condition</td><td><code>updateCustomerInformationProcess</code> (Complete client info)</td><td><code>UPDATE_CUSTOMER_INFO</code></td><td><code>PENDING_INFO</code></td></tr>
+    <tr><td><code>DEBT_CLOSED</code></td><td>condition</td><td>inline <code>closeFile</code> service task</td><td><code>NONE</code></td><td><code>CLOSED</code></td></tr>
+    <tr><td><code>INFO_RESEARCH</code></td><td>condition</td><td>inline <code>infoResearch</code> service task</td><td><code>INFORMATION_RESEARCH</code></td><td><code>PENDING_INFO</code></td></tr>
+  </table>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 2 — End-to-end business flow (<code>debtCollectionProcess</code> + sub-processes)</figcaption>
+    <div class="mermaid">
+flowchart TD
+    A["Debt Received<br/>start event"] --> B["Validate Debt<br/>validateDebtDelegate"]
+    B --> C["Segment Debt<br/>segmentDebtDelegate<br/>(DMN, local fallback)"]
+    C --> GW{"qualificationGateway<br/>route by qualification"}
+    GW -->|FIRST_CONTACT| P1["reminderProcess<br/>FRIENDLY_REMINDER"]
+    GW -->|FOLLOW_UP| P2["phoneCollectionProcess<br/>STANDARD_CONTACT"]
+    GW -->|PROMISE_BROKEN| P3["escalationProcess<br/>INTENSIVE_CONTACT"]
+    GW -->|PRE_LEGAL| P4["preLegalCollectionProcess<br/>PRE_LEGAL_REVIEW"]
+    GW -->|LEGAL| P5["legalCollectionProcess<br/>LEGAL_ACTION"]
+    GW -->|CLIENT_INFORMATION_INCOMPLETE| P6["updateCustomerInformationProcess<br/>UPDATE_CUSTOMER_INFO"]
+    GW -->|DEBT_CLOSED| T1["inline: Close File<br/>NONE / CLOSED"]
+    GW -->|INFO_RESEARCH| T2["inline: Information Research<br/>INFORMATION_RESEARCH"]
+    P1 --> E["End<br/>Completed"]
+    P2 --> E
+    P3 --> E
+    P4 --> E
+    P5 --> E
+    P6 --> E
+    T1 --> E
+    T2 --> E
+    </div>
+  </figure>
+
+  <h3>7.1 Why strategy/status/workflow live in the BPMN</h3>
+  <p>Each sub-process contains a single service task running the shared <code>ApplyStrategyDelegate</code>,
+  configured via <code>flowable:class</code> + <code>flowable:field</code> string injection
+  (<code>strategy</code>, <code>status</code>, <code>workflow</code> literals declared in the BPMN XML).
+  The per-qualification behaviour is therefore <em>declared in the model</em>, not duplicated across Java
+  classes — changing a strategy is a BPMN change, not a code change.</p>
+  <div class="callout warn"><strong>Do not “Spring-ify” ApplyStrategyDelegate</strong>
+    It is intentionally <em>not</em> a Spring bean: Flowable instantiates a fresh instance per execution so field
+    injection is safe. In contrast, <code>validateDebtDelegate</code> and <code>segmentDebtDelegate</code> are
+    wired by <strong>bean name</strong> (<code>flowable:delegateExpression="${...}"</code> ↔
+    <code>@Component("...")</code>) — renaming one without the other silently breaks deployment.
+    <code>SelectStrategyDelegate</code> is an orphan bean referenced by no BPMN: do not wire it in.</div>
+</section><section id="architecture">
+  <h2>8. Technical Architecture</h2>
+  <p class="lead">Two Flowable engines are deliberately split across two services: BPMN lives in
+  <code>workflow-service</code> (port 8094), DMN lives in <code>segmentation-service</code> (port 8092). No other
+  service may depend on Flowable. The API Gateway (port 8080) fronts the platform; tenancy is mandatory on every
+  call (<code>X-Tenant-Id</code>), JWT validation is optional (<code>SECURITY_ENABLED=false</code> by default).</p>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 3 — Sequence diagram: synchronous collection start</figcaption>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant C as Intake / Client system
+    participant W as workflow-service (8094)
+    participant E as Flowable BPMN engine
+    participant S as segmentation-service (8092)
+    C->>W: POST /api/v1/workflows/collection/start<br/>X-Tenant-Id, debtId, customerId, [EPIC 1-6]
+    W->>W: buildVariables (defaults for missing dims)
+    W->>E: startProcessInstanceByKey("debtCollectionProcess", debtId)
+    E->>E: validateDebtDelegate (bean)
+    E->>E: segmentDebtDelegate (bean)
+    E->>S: POST /api/v1/segmentation/execute<br/>X-Tenant-Id + X-Correlation-Id
+    S->>S: DMN debt-segmentation (FIRST hit)
+    S-->>E: qualification + qualificationReason
+    alt DMN failure
+        E->>E: qualifyLocally (mirrored rules), qualificationSource=LOCAL
+    end
+    E->>E: qualificationGateway -> callActivity (inheritVariables)
+    E->>E: ApplyStrategyDelegate (flowable:class + fields)
+    E-->>W: process completed synchronously (no wait states)
+    W->>W: read history (qualification, segment, strategy, status)
+    W-->>C: 201 {processInstanceId, qualification, segment, strategy, status}
+    </div>
+  </figure>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 4 — System architecture (Flowable split, databases, engines)</figcaption>
+    <div class="mermaid">
+flowchart LR
+    G["api-gateway<br/>8080"] --> W["workflow-service<br/>8094<br/>Flowable BPMN 7.2"]
+    G --> S["segmentation-service<br/>8092<br/>Flowable DMN"]
+    W -->|"REST /api/v1/segmentation/execute"| S
+    W -->|"ACT_* + business tables"| DBW[("PostgreSQL<br/>workflow_service")]
+    S -->|"ACT_* + business tables"| DBS[("PostgreSQL<br/>segmentation_service")]
+    UI["flowable/flowable-ui:6.8.0<br/>8090 (Modeler/Task/Admin)"] -->|"own DB, not shared"| DBU[("PostgreSQL<br/>flowable_ui")]
+    UI -.->|"Admin app → engine REST"| W
+    KC["Keycloak 26<br/>8180<br/>OIDC (optional)"] -.-> G
+    subgraph Platform["shared-kernel (com.deptcollector.shared)"]
+        TC["TenantContext<br/>X-Tenant-Id filter"]
+        CORR["X-Correlation-Id"]
+    end
+    W --> TC
+    S --> TC
+    </div>
+  </figure>
+
+  <figure class="diagram-card">
+    <figcaption>Figure 5 — Local deployment (docker compose up -d)</figcaption>
+    <div class="mermaid">
+flowchart LR
+    PG["postgres:17-alpine<br/>5432"] --> DB1[("tenant / workflow_service / segmentation_service /<br/>flowable_ui … 27 DBs via init-databases.sql")]
+    KC["keycloak:26.2<br/>8180"] --> RLM["realm dept-collector"]
+    RD["redis:7.4-alpine<br/>6379"]
+    KF["apache/kafka:3.9.1<br/>9092"]
+    FUI["flowable-ui:6.8.0<br/>8090"] --> PG
+    WSV["workflow-service (JVM)<br/>8094"] --> PG
+    SEV["segmentation-service (JVM)<br/>8092"] --> PG
+    GW["api-gateway (JVM)<br/>8080"]
+    </div>
+  </figure>
+
+  <h3>8.1 Schema ownership</h3>
+  <ul>
+    <li>Flowable engine tables (<code>ACT_*</code>) are created and upgraded by the engine itself
+        (<code>flowable.database-schema-update: true</code>). <strong>Never</strong> write Flyway migrations for them.</li>
+    <li>Flyway owns only business tables — currently a single <code>outbox_event</code> table
+        (<code>V1__baseline.sql</code>).</li>
+    <li><code>ddl-auto: validate</code> everywhere; never switch to H2 or <code>ddl-auto: update</code>.</li>
+  </ul>
+
+  <h3>8.2 Two package roots, on purpose</h3>
+  <p>Service code is <code>com.mercure.recouvrement.workflow</code>, shared-kernel is
+  <code>com.deptcollector.shared</code> — both scanned via <code>WorkflowApplication</code>
+  <code>scanBasePackages</code>. Do not “fix” the mismatch.</p>
+</section><section id="api">
+  <h2>9. API Contracts</h2>
+  <h3>9.1 Collection entry points (workflow-service, base <code>/api/v1/workflows</code>)</h3>
+  <table>
+    <tr><th>Endpoint</th><th>Semantics</th></tr>
+    <tr><td><code>POST /collection/start</code></td><td><strong>Synchronous</strong> start of <code>debtCollectionProcess</code> (no wait states → completes in the calling thread). Always <code>201</code>. <strong>Not idempotent.</strong> Returns <code>processInstanceId</code>, <code>debtId</code>, <code>customerId</code>, <code>qualification</code>, <code>qualificationReason</code>, <code>segment</code>, <code>strategy</code>, <code>status</code> read back from history.</td></tr>
+    <tr><td><code>POST /processes</code></td><td><strong>Idempotent</strong> start: same processDefinitionKey + businessKey(=debtId) + tenantId → existing instance with <code>created=false</code> (HTTP 200); <code>201</code> only on create.</td></tr>
+    <tr><td><code>GET /tasks</code></td><td>Active user tasks for the tenant (tooling — no user tasks exist yet).</td></tr>
+    <tr><td><code>POST /tasks/{taskId}/complete</code></td><td>Complete a task with optional variables.</td></tr>
+    <tr><td><code>GET /processes/{pid}/history</code></td><td>Historic activities of an instance (tenant-filtered).</td></tr>
+    <tr><td><code>GET /processes/{pid}/variables</code></td><td>Runtime variables of an instance.</td></tr>
+    <tr><td><code>GET /processes/{pid}/incidents</code></td><td>Failed jobs / incidents for an instance.</td></tr>
+    <tr><td><code>GET /processes/{pid}/jobs/dead</code> · <code>POST /jobs/{jobId}/retry</code></td><td>Dead-letter jobs and requeue (operational).</td></tr>
+    <tr><td><code>GET /processes/{pid}/timers</code> · <code>POST /timers/{timerId}/trigger</code></td><td>Timers and manual trigger (operational — no timers in processes yet).</td></tr>
+  </table>
+
+  <h3>9.2 Segmentation service (base <code>/api/v1/segmentation</code>)</h3>
+  <table>
+    <tr><th>Endpoint</th><th>Semantics</th></tr>
+    <tr><td><code>POST /execute</code></td><td>Execute the DMN decision and return <code>qualification</code> + <code>qualificationReason</code>.</td></tr>
+    <tr><td><code>POST /simulate</code></td><td>Same evaluation, no side effects (<code>simulated=true</code> in response).</td></tr>
+  </table>
+
+  <h3>9.3 Flowable official REST API</h3>
+  <p><code>/process-api/**</code> is also exposed (via <code>flowable-spring-boot-starter-rest</code>;
+  <code>FlowableSecurityAutoConfiguration</code> excluded). The Flowable Admin UI connects to it. Swagger UI is
+  served by springdoc (<code>springdoc-openapi-starter-webmvc-ui</code>).</p>
+
+  <h3>9.4 Request example</h3>
+  <pre><code>curl -X POST http://localhost:8094/api/v1/workflows/collection/start \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-Id: tenant-demo' \
+  -d '{"debtId":"DEBT-2026-00042","customerId":"CUST-7711",
+       "contractStatus":"TERMINATED_CONTRACT","paymentHistory":"NO_PAYMENT",
+       "collectionStage":"MULTIPLE_FOLLOW_UPS"}'
+# → 201 { "processInstanceId":"…", "qualification":"LEGAL", "qualificationReason":"Legal conditions met…",
+#         "segment":"HIGH_RISK", "strategy":"LEGAL_ACTION", "status":"COMPLETED" }</code></pre>
+</section>
+
+<section id="nfr">
+  <h2>10. Non-Functional Requirements &amp; Invariants</h2>
+  <ul>
+    <li><strong>Tenancy is mandatory:</strong> every request carries <code>X-Tenant-Id</code> and <code>TenantContext.getRequiredTenantId()</code> guards every endpoint. The synchronous <code>/collection/start</code> starts the instance tenant-less (BPMN auto-deploy) and keeps the tenant as a process variable for traceability; the idempotent <code>POST /processes</code> starts with an explicit tenant id and dedupes by tenant. All read queries (tasks, history, jobs, timers) are tenant-filtered.</li>
+    <li><strong>Correlation:</strong> <code>X-Correlation-Id</code> is propagated to segmentation-service and
+        carried in logs (<code>%X{correlationId}</code>).</li>
+    <li><strong>Resilience:</strong> DMN failure never blocks the process (local fallback).</li>
+    <li><strong>Consistency:</strong> decision logic lives in BPMN delegates and the gateway — never in the
+        service or controller.</li>
+    <li><strong>Observability:</strong> Actuator health probes + Prometheus endpoint; history-level
+        <code>audit</code>.</li>
+    <li><strong>Testing:</strong> the only test (<code>WorkflowApplicationTest</code>) is a context-load check
+        needing reachable Postgres with the Flowable schema — no H2, no Testcontainers. Do not add H2 as a
+        shortcut.</li>
+    <li><strong>Extensibility:</strong> current processes have no user tasks and no timers — everything is
+        synchronous. The tasks/timers/incidents/jobs endpoints and <code>async-executor-activate</code> are
+        operational tooling for when waited/timed steps are added.</li>
+  </ul>
+</section>
+
+<section id="dod">
+  <h2>11. Acceptance Criteria (Definition of Done)</h2>
+  <table>
+    <tr><th>#</th><th>Criteria</th><th>Evidence</th></tr>
+    <tr><td>1</td><td>A debt file can be qualified from the six categorical dimensions</td><td>POST /collection/start returns a valid <code>qualification</code></td></tr>
+    <tr><td>2</td><td>Each of the 8 qualifications routes to its dedicated process / task</td><td>BPMN gateway + sub-process matrix (section 7)</td></tr>
+    <tr><td>3</td><td>The decision is explainable</td><td><code>qualificationReason</code> returned to the caller</td></tr>
+    <tr><td>4</td><td>The decision engine can be replaced without code change</td><td>DMN table + Java fallback parity; <code>qualificationSource</code> traced</td></tr>
+    <tr><td>5</td><td>Tenant isolation holds</td><td>Tenant-filtered queries; <code>X-Tenant-Id</code> required everywhere</td></tr>
+    <tr><td>6</td><td>Start is idempotent where promised</td><td>POST /processes returns <code>created=false</code> on repeat</td></tr>
+    <tr><td>7</td><td>Outcome is persisted and auditable</td><td>Process history + historic variables readable via API</td></tr>
+    <tr><td>8</td><td>Operational tooling works</td><td>incidents / dead-letter jobs / timers endpoints exposed</td></tr>
+    <tr><td>9</td><td>Rules remain business-visible and versioned</td><td>DMN deployed as versioned decision table</td></tr>
+  </table>
+</section>
+
+<section id="outofscope">
+  <h2>12. Out of Scope / Backlog</h2>
+  <ul>
+    <li>Full legal workflows, multichannel reminders (SMS/email/courier integrations), predictive scoring / AI.</li>
+    <li>Human tasks and timers/SLA in the current BPMN (tooling exists, models do not yet use them).</li>
+    <li>Multi-engine orchestration, Flowable clustering / HA, production monitoring, load testing.</li>
+    <li>Real fact providers: EPIC 1–6 providers currently echo the request (stubs) — wiring them to
+        customer/debt/contract services is future work.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  Dept Collector — PRD · reverse-engineered from <code>workflow-service</code> &amp; <code>segmentation-service</code>
+  (branch <code>ft-setup-flowable</code>) · Flowable 7.2.0 · Spring Boot 3.5.12 · Java 21
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#e7f0ff',
+      primaryBorderColor: '#1f6feb',
+      primaryTextColor: '#1f2430',
+      lineColor: '#1f6feb',
+      secondaryColor: '#f7f8fa',
+      tertiaryColor: '#ffffff',
+      fontSize: '14px'
+    },
+    flowchart: { curve: 'basis', htmlLabels: true },
+    sequence: { mirrorActors: false, wrap: true }
+  });
+</script>
+</body>
+</html>
